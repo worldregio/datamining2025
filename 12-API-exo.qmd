@@ -1,0 +1,70 @@
+---
+title: "API-Exo"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+Nous proposons une série d'exercices d'application du cours du chapitre précédent en allant des applications les plus simples au plux complexes. Les exercices portent tous sur la base de donnée des **demandes de valeurs foncières géoloalisées** que l'on peut trouver sur le site [public.opendatasoft](https://public.opendatasoft.com/) 
+
+
+## Exercice 1 : Récupération et analyse d'un tableau unique
+
+### Problème
+Essayez de récupérer à l'aide d'une API les informations sur l'ensemble des **ventes** immobilières de **maisons**  de la commune de Montcuq-en-Quercy-Blanc (**code INSEE = 46201**) au cours de l'**année 2020**.  Vous devez ensuite 
+
+- Afficher les premières lignes du tableau des ventes de maisons à Moncuq en en 2020
+- Calculer le nombre de ventes et leur prix moyen au m2
+- Réaliser un histogramme du prix moyen de ces ventes sur lequel figureront le nombre de ventes et le prix moyen. 
+
+
+### Solution
+Vous devez obtenir les résultats suivants :
+
+
+```{r, echo=FALSE, warning=F, message = F}
+
+library(tidyverse, quietly = T, warn.conflicts=F)
+library(jsonlite,quietly = T)
+library(knitr)
+
+
+link<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/buildingref-france-demande-de-valeurs-foncieres-geolocalisee-millesime/exports/json?lang=fr&refine=type_local%3A%22Maison%22&refine=com_code%3A%2246201%22&refine=date_mutation%3A%222020%22&facet=facet(name%3D%22date_mutation%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22type_local%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FParis"
+
+
+
+don<-fromJSON(link)
+
+
+
+don<-don %>% select(Date = date_mutation,
+                    Commune = com_name,
+                    Code = com_code,
+                    Surf_hab = surface_reelle_bati,
+                    Surf_ter = surface_terrain,
+                    Prix = valeur_fonciere) %>% 
+  mutate(Prix_m2 = Prix/Surf_hab) %>%
+  arrange(Date)
+
+kable(head(don), digits=0,label = "Extrait du tableau de données")
+
+nbventes = dim(don)[1]
+moy = mean(don$Prix_m2)
+message<-paste0("Il ya eu ",nbventes, " ventes au prix moyen de ",round(moy,0)," €/m2")
+print(message)
+
+
+hist(don$Prix_m2, 
+     main="Prix de ventes au m2 des maisons à Moncuq en 2020",
+     breaks=10,
+     xlab="prix au m2",
+     ylab="nombre de ventes",
+     col="lightyellow")
+abline(v=moy, col="red", lwd=2)
+```
+
+
+
+
+
