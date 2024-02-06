@@ -4692,7 +4692,7 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>ovni</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Response [http://api.open-notify.org/astros.json]
-  Date: 2024-02-06 11:13
+  Date: 2024-02-06 14:55
   Status: 200
   Content-Type: application/json
   Size: 360 B</code></pre>
@@ -4713,7 +4713,7 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
  $ status_code: int 200
  $ headers    :List of 6
   ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  ..$ date                       : chr &quot;Tue, 06 Feb 2024 11:13:15 GMT&quot;
+  ..$ date                       : chr &quot;Tue, 06 Feb 2024 14:55:08 GMT&quot;
   ..$ content-type               : chr &quot;application/json&quot;
   ..$ content-length             : chr &quot;360&quot;
   ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4725,7 +4725,7 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
   .. ..$ version: chr &quot;HTTP/1.1&quot;
   .. ..$ headers:List of 6
   .. .. ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  .. .. ..$ date                       : chr &quot;Tue, 06 Feb 2024 11:13:15 GMT&quot;
+  .. .. ..$ date                       : chr &quot;Tue, 06 Feb 2024 14:55:08 GMT&quot;
   .. .. ..$ content-type               : chr &quot;application/json&quot;
   .. .. ..$ content-length             : chr &quot;360&quot;
   .. .. ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4740,8 +4740,8 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
   ..$ name      : logi(0) 
   ..$ value     : logi(0) 
  $ content    : raw [1:360] 7b 22 6d 65 ...
- $ date       : POSIXct[1:1], format: &quot;2024-02-06 11:13:15&quot;
- $ times      : Named num [1:6] 0 0.036 0.191 0.192 0.951 ...
+ $ date       : POSIXct[1:1], format: &quot;2024-02-06 14:55:08&quot;
+ $ times      : Named num [1:6] 0 0.0247 0.1733 0.1734 0.4332 ...
   ..- attr(*, &quot;names&quot;)= chr [1:6] &quot;redirect&quot; &quot;namelookup&quot; &quot;connect&quot; &quot;pretransfer&quot; ...
  $ request    :List of 7
   ..$ method    : chr &quot;GET&quot;
@@ -4768,11 +4768,11 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>ovni<span class="sc">$</span>headers<span class="sc">$</span>date</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Tue, 06 Feb 2024 11:13:15 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Tue, 06 Feb 2024 14:55:08 GMT&quot;</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>ovni[[<span class="st">&quot;headers&quot;</span>]][[<span class="st">&quot;date&quot;</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Tue, 06 Feb 2024 11:13:15 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Tue, 06 Feb 2024 14:55:08 GMT&quot;</code></pre>
 </div>
 </div>
 <p>On peut également afficher les noms des branches en partant de la racine puis en suivant l’arbre à l’aide de l’instruction <code>names()</code></p>
@@ -4943,13 +4943,13 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
 <span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_ISS2</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                name craft                          date
-1    Jasmin Moghbeli   ISS Tue, 06 Feb 2024 11:13:16 GMT
-2   Andreas Mogensen   ISS Tue, 06 Feb 2024 11:13:16 GMT
-3   Satoshi Furukawa   ISS Tue, 06 Feb 2024 11:13:16 GMT
-4 Konstantin Borisov   ISS Tue, 06 Feb 2024 11:13:16 GMT
-5     Oleg Kononenko   ISS Tue, 06 Feb 2024 11:13:16 GMT
-6       Nikolai Chub   ISS Tue, 06 Feb 2024 11:13:16 GMT
-7       Loral O&#39;Hara   ISS Tue, 06 Feb 2024 11:13:16 GMT</code></pre>
+1    Jasmin Moghbeli   ISS Tue, 06 Feb 2024 14:55:09 GMT
+2   Andreas Mogensen   ISS Tue, 06 Feb 2024 14:55:09 GMT
+3   Satoshi Furukawa   ISS Tue, 06 Feb 2024 14:55:09 GMT
+4 Konstantin Borisov   ISS Tue, 06 Feb 2024 14:55:09 GMT
+5     Oleg Kononenko   ISS Tue, 06 Feb 2024 14:55:09 GMT
+6       Nikolai Chub   ISS Tue, 06 Feb 2024 14:55:09 GMT
+7       Loral O&#39;Hara   ISS Tue, 06 Feb 2024 14:55:09 GMT</code></pre>
 </div>
 </div>
 <p>Et si on est à l’aise avec les listes, on peut aussi exporter les résultats sous la forme d’une liste plutôt que d’un tableau, ce qui évite de répéter plusieurs fois la date d’extraction des données</p>
@@ -4971,7 +4971,7 @@ Attachement du package : &#39;dplyr&#39;</code></pre>
 <span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(x<span class="sc">$</span>Data, <span class="at">caption=</span><span class="fu">paste</span>(<span class="st">&quot;Passagers de l&#39;ISS :&quot;</span>, x<span class="sc">$</span>Update))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="table table-sm table-striped small">
-<caption>Passagers de l’ISS : Tue, 06 Feb 2024 11:13:16 GMT</caption>
+<caption>Passagers de l’ISS : Tue, 06 Feb 2024 14:55:09 GMT</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;">name</th>
