@@ -13,7 +13,7 @@ Le but de ce chapitre n'est pas d'apprendre en détail l'ensemble des possibilit
 On charge les packages utiles :
 
 ```{r}
-knitr::opts_chunk$set(echo = FALSE, warning= FALSE, message = FALSE, error=FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE, error=FALSE)
 
 ## Affichage de tableaux
 library(knitr)
@@ -23,7 +23,7 @@ library(httr)
 library(jsonlite)
 
 ## Tidyverse & co
-library(dplyr, warn.conflicts = T)
+library(dplyr, warn.conflicts = T, quietly = T)
 library(ggplot2)
 ```
 
