@@ -1,19 +1,33 @@
 project:
   type: website
+  output-dir: docs
+
+
+render:
+      - index.qmd
+      - 10-API-INTRO.qmd
+      - 11-API-OPENDATASOFT.qmd
+
 
 website:
-  title: "datamining2024"
-  navbar:
-    left:
-      - href: index.qmd
-        text: Home
-      - about.qmd
+  sidebar:
+    style: "docked"
+    search: true
+    contents:
+      - section: "API"
+        contents:
+          - 10-API-INTRO.qmd
+          - 11-API-OPENDATASOFT.qmd
+      - section: "Layout"
 
+
+
+ 
 format:
   html:
     theme: cosmo
     css: styles.css
     toc: true
 
-editor: visual
+
 

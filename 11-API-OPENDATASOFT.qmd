@@ -1,0 +1,298 @@
+---
+title: "L'API opendatasoft"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+
+
+L'objectif de ce chapitre est d'examiner en détail le fonctionnement du site **public.opendatasoft**  qui permet d'accèder à des centaines d'API à l'aide de requêtes normalisées. Sans apprendre en détail le fonctionnement de cette API, on va montrer comment créer de petites fonctions facilitant le travail d'exportation des variables ou des données. 
+
+On charge les packages utiles :
+
+```{r}
+library(knitr)
+library(httr)
+library(jsonlite)
+library(dplyr)
+```
+
+
+
+
+## Liste des API
+
+La première étape consiste à choisir l'API qui nous intéresse parmi plus de 600. 
+
+### En parcourant le site
+
+On peut se rendre sur le site pour parcourir les API proposées en allant à l'adresse :
+https://public.opendatasoft.com
+
+```{r, echo=FALSE}
+knitr::include_graphics("img/opendatasoft.png")
+```
+
+### En récupérant le catalogue
+
+Mais il est également possible de téécharger le catalogue général ... en se servant d'une API
+
+```{r}
+x<-GET('https://public.opendatasoft.com/api/datasets/1.0/search/?q=&rows=1000&start=0')
+y<-fromJSON(rawToChar((x$content)))
+cat<-y$datasets$metas
+row.names(cat)<-y$datasets$datasetid
+kable(head(cat[,c(12,1,6,7,8)]),row.names = F)
+```
+
+
+
+On suppose que le choix s'est porté sur l'API *arbresremarquablesparis2011*
+
+```{r, echo=FALSE}
+knitr::include_graphics("img/arbres1.png")
+```
+
+
+
+## Liste des variables d'une API
+
+Avant de télécharger les données, on effectue une requête pour connaître les variables du tableau que l'on va télécharger ainsi que les variables pouvant servir de "facettes" c'est-à-dire permettant d'effectuer des requêtes.
+
+### Programme
+
+```{r}
+tab<-"arbresremarquablesparis2011"
+url<-paste("https://public.opendatasoft.com/api/v2/catalog/datasets/",tab,"?",sep="")
+x<-GET(url)
+y<-fromJSON(rawToChar(x$content))
+var<-y$dataset$fields
+
+head(var)
+
+
+```
+
+
+Le tableau est correct, mais il présente une structure inhabituelle puisqu'on trouve un dataframe à l'intérieur de chaque ligne de la variable annotations. On va donc éviter les ennuis en ne gardant que les deux premières colonnes
+
+```{r}
+var <- var  %>% select(-annotations)
+kable(var)
+```
+
+### Fonction
+
+On le transforme en fonction pour un usage plus simple : 
+
+```{r}
+get_variables<-function(idtab = "arbresremarquablesparis2011") {
+  url<-paste("https://public.opendatasoft.com/api/v2/catalog/datasets/",idtab,"?",sep="")
+  x<-GET(url)
+  y<-fromJSON(rawToChar((x$content)))
+  var<-y$dataset$fields
+  var <- var %>% select(-annotations)
+  return(var)
+}
+```
+
+On peut désormais appliquer notre fonction sur n'importe quel autre tableau du catalogue. Par exemple, si on choisit le tableau `qualite_de-lair-france` on obtient la liste de variables suivante :
+
+```{r}
+var<-get_variables("qualite-de-lair-france")
+kable(var)
+```
+
+## Récupération des données
+
+### Programme
+
+Par défaut, une API renvoie 10 enregistrements, ce qui permet de se faire une première idée de la structure des données
+
+```{r}
+
+ x<-GET("https://public.opendatasoft.com/api/records/1.0/search/?dataset=arbresremarquablesparis2011&q=&rows=10")
+y<-fromJSON(rawToChar((x$content)))
+  don<-y$records$fields
+kable(don)
+
+```
+
+### Fonction
+
+On peut ensuite écrire une fonction qui précise le nombre d'enregistrements à lire avec le paramètre `raws=` et le point de départ de la lecture avec le paramètre `start=` (sachant que le premier enregistrement correspond à la valeur 0). On pourra ensuite procéder à des téléchargements successifs en évitant de dépasser la valeur `raws=10000` car en génral cela bloque le fonctionnement des API. Pour télécharger un tableau ayant plus de 10000 lignes, il faudra de préférence créer une boucle qui ramène des paquets de 10000.
+
+```{r}
+get_data<-function(idtab = "arbresremarquablesparis2011",
+                  rows=10,
+                  start=0) {
+  url<-paste0("https://public.opendatasoft.com/api/records/1.0/search/?dataset=",idtab,"&q=&rows=",rows,"&start=",start,sep="")
+  x<-GET(url)
+  y<-fromJSON(rawToChar((x$content)))
+  don<-y$records$fields
+  return(don)
+}
+
+```
+
+Dans le cas du tableau des arbres remarquables à paris, il n'y a que 178 enregistrements et il suffit donc de mettre une valeur de raws supérieure pour récupérer tout le tableau :
+
+```{r}
+don_arbres <- get_data(idtab = "arbresremarquablesparis2011",
+                      rows=1000,
+                      start=0)
+dim(don_arbres)
+kable(head(don_arbres))
+```
+
+Si l'on prend l'exemple de la qualité de l'air, le tableau est nettement plus grand mais reste sous la valeur de 10000 enregistrements
+
+```{r}
+don_air <- get_data(idtab = "qualite-de-lair-france",
+                      rows=10000,
+                      start=0)
+dim(don_air)
+kable(head(don_air))
+```
+
+Par contre la base SIRENE  comporte 34 millions d'enregistrement et il va être impossible de la télécharger d'un coup à l'aide d'une API. Dès que la valeur rows dépasse 10000, l'API refuse de renvoyer les résultats
+
+```{r}
+don_sir <- get_data(idtab = "sirene_v3",
+                      rows=10001,
+                      start=0)
+dim(don_sir)
+```
+
+## Sélection ou exclusion
+
+L'intérêt principal d'une API est de procéder à des sélections d'enregistrement en amont de leur téléchargement. On va utiliser pour cela les facettes qui correspondent aux variables pour lesquelles l'API a prévu des index permettant une extraction rapide.
+
+### Sélection
+
+Supposons par exemple qu'on ne veuille extraire que les arbres remarquables de la famille des chênes (genre = Quercus). Cela correspond à l'ajout à la fin de l'instruction GET d'une instruction `refine` prenant ici la forme `refine.genre=Quercus`.
+
+```{r}
+x<- GET("https://public.opendatasoft.com/api/records/1.0/search/?dataset=arbresremarquablesparis2011&q=&rows=100&refine.genre=Quercus")
+  y<-fromJSON(rawToChar((x$content)))
+  don<-y$records$fields
+  kable(don)
+```
+
+
+### Exclusion
+
+On peut de la même manière exclure au lieu de sélectionner en utilisant l'instruction `exclude`. Par exemple, on peut retirer les deux bois de Vincennes et de Boulogne qui sont identifiés dans la variable arrondissement. Il ne rste plus alors que 130 arbres remarquables au lieu de 178.
+
+```{r}
+x<- GET("https://public.opendatasoft.com/api/records/1.0/search/?dataset=arbresremarquablesparis2011&q=&rows=1000&exclude.arrondissement=BOIS+DE+VINCENNES&exclude.arrondissement=BOIS+DE+BOULOGNE")
+  y<-fromJSON(rawToChar((x$content)))
+  don<-y$records$fields
+ dim(don)
+ table(don$arrondissement)
+```
+
+
+
+### Sélection géographique
+
+Une autre possibilité offerte par l'application est d'extraire des enregistrements en fonction d'une localisation géographique et d'une distance maximale à celle-ci. Supposons par exemple que l'on souhaite trouver l'ensemble des arbres remarquables dans un rayon de 2 km autour du bâtiment Olympe de Gouges situé place Paul Ricoeur dans le 13e arrondissement.  Pour résoudre le problème, on commence par déterminer les coordonnées du lieu cible ce qui peut se faire par un click droit dans une Google Map : 
+
+```{r,fig.width=3}
+knitr::include_graphics("img/coord_odg.png")
+```
+
+On passe ensuite une requête incluant le paramètre `geofilter.distance()`assortie des trois paramètres de latitude (en degré décimal), longitude (en degré décimal) et distance (en mètres) avec comme séparateur `%2C`ce qui donne au final un tableau ne comportant que 3 arbres remarquables à moins de deux kilomètres du point choisi :
+
+```{r, eval=F}
+
+x<-GET("https://public.opendatasoft.com/api/records/1.0/search/?dataset=arbresremarquablesparis2011&q=&rows=1000&geofilter.distance=48.82670%2C2.38242%2C2000")
+  y<-fromJSON(rawToChar((x$content)))
+  don<-y$records$fields
+don <-don%>% select(adresse, libellefrancais, dist, hauteurenm, circonferenceencm)
+kable(don)
+```
+
+### Fonction
+
+Nous pouvons alors créer une petite fonction qui va automatiquement sélectionner les arbres en fonction d'une coordonnée et d'une distance choisies par l'utilisateur :
+
+```{r}
+get_data_geo<-donnees<-function(idtab = "arbresremarquablesparis2011",
+                  rows=10,
+                  start=0,
+                  lat = 48.82670,
+                  lon = 2.38242,
+                  dist = 2000) {
+  url<-paste0("https://public.opendatasoft.com/api/records/1.0/search/?dataset=",idtab,
+              "&q=&rows=",rows,
+              "&start=",start,
+              "&geofilter.distance=", lat,"%2C", lon,"%2C",dist,
+              sep="")
+  
+  x<-GET(url)
+  y<-fromJSON(rawToChar((x$content)))
+  don<-y$records$fields
+  return(don)
+}
+
+```
+
+Notre fonction est paramétrée par défaut sur la place Paul Ricoeur pour un rayon de 2000 mètres mais on peut ensuite changer les paramètres comme on le souhaite. On peut par exemple rechercher les arbres remarquables dans un rayon de 500 mètres autour de la cathédrale Notre Dame de Paris.
+
+```{r}
+tab<-get_data_geo(idtab = "arbresremarquablesparis2011",
+                  rows=1000,
+                  start=0,
+                  lat = 48.85331,
+                  lon = 2.34907,
+                  dist = 500)
+kable(tab)
+```
+
+Mais notre fonction peut également marcher pour d'autres tableaux si ceux-ci ont la même structure. On peut ainsi examiner les entreprises localisées à moins de 50 mètres du bâtiment d'Olympe de Gouges à l'aide de la base SIREN et on trouve 11 références :
+
+
+
+```{r, eval=F}
+tab<-get_data_geo(idtab = "sirene_v3",
+                  rows=1000,
+                  start=0,
+                  lat = 48.82670,
+                  lon = 2.38242,
+                  dist = 50)
+tab<-tab %>% select(siret,l1_adressage_unitelegale, adresseetablissement,sectionetablissement,naturejuridiqueunitelegale)
+kable(tab)
+
+```
+
+## Exercice
+
+Essayez de récupérer les informations sur l'ensemble des ventes immobilières de maisons  commune de Montcuq-en-Quercy-Blanc (Code Postal 46800) au cours de l'année 2020 puis calculés le prix moyen par m2 de 
+
+**buildingref-france-demande-de-valeurs-foncieres-geolocalisee-millesime**
+
+
+```{r}
+
+ x<-GET("https://public.opendatasoft.com/api/records/1.0/search/?dataset=buildingref-france-demande-de-valeurs-foncieres-geolocalisee-millesime&q=montcuq&refine.date_mutation=2020&refine.type_local=Maison&rows=1000")
+
+w<-rawToChar((x$content))
+d<-fromJSON(w)
+t<-d$records$fields
+
+don<-t %>% select(surface_reelle_bati,surface_terrain,valeur_fonciere) %>% 
+  mutate(prixm2 = valeur_fonciere/surface_reelle_bati)
+
+kable(don)
+summary(don)
+
+plot(don$surface_reelle_bati,don$valeur_fonciere)
+```
+
+
+
+
+

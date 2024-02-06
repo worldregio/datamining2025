@@ -1,11 +1,45 @@
 ---
-title: "datamining2024"
+title: "DataMining2023"
 ---
 
-This is a Quarto website.
+## À propos de ce document {.unnumbered}
 
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
+Ce document est la quatrième édition d'un cours de Data Mining dispensé aux étudiants de deuxième année de l' option Data Mining du master MECI conjointement avec Camille Signoretto. 
+
+Il est basé sur :
 
 ```{r}
-1 + 1
+R.Version()[["version.string"]]
 ```
+
+
+Ce document est régulièrement corrigé et mis à jour. La version de référence est disponible en ligne à l'adresse :
+
+-   <https://claudegrasland.github.io/datamining2024/>.
+
+Pour toute suggestion ou correction, il est possible de me contacter [par mail](mailto:claude.grasland@parisgeo.cnrs.fr)
+
+## Prérequis {.unnumbered}
+
+Le seul prérequis pour suivre ce document est d'avoir installé R et RStudio sur votre ordinateur. Il s'agit de deux logiciels libres, gratuits, téléchargeables en ligne et fonctionnant sous PC, Mac et Linux.
+
+Pour installer R, il suffit de se rendre sur une des pages suivantes [^1] :
+
+[^1]: Sous Linux, utilisez votre gestionnaire de packages habituel.
+
+-   [Installer R sous Windows](https://cloud.r-project.org/bin/windows/base/)
+-   [Installer R sous Mac](https://cloud.r-project.org/bin/macosx/)
+
+Pour installer RStudio, rendez-vous sur la page suivante et téléchargez la version adaptée à votre système :
+
+-   <https://www.rstudio.com/products/rstudio/download/#download>
+
+## Remerciements {.unnumbered}
+
+Ce document a bénéficié de la relecture et des suggestions ... des étudiants qui en ont été les cobayes des premières versions.
+
+## Licence {.unnumbered}
+
+Ce document est mis à disposition selon les termes de la [Licence Creative Commons Attribution - Pas d’Utilisation Commerciale - Partage dans les Mêmes Conditions 4.0 International](http://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+![Licence Creative Commons](icons/license_cc.png)
