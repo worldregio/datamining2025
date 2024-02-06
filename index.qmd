@@ -1,5 +1,5 @@
 ---
-title: "DataMining2023"
+title: "Data Mining 2024"
 ---
 
 ## À propos de ce document {.unnumbered}
