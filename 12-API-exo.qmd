@@ -65,6 +65,91 @@ abline(v=moy, col="red", lwd=2)
 ```
 
 
+## Exercice 2 : Tableau de bord d'une commune
+
+### Problème
+Essayez de récupérer à l'aide d'une API les informations sur l'ensemble des **ventes** immobilières de **maisons ou d'appartement**  de la commune de Sucy-en-Brie (Code INSEE = 94071)
+
+1. Simplifiez le tableau pour ne garder que les variables suivantes 
+  - date : date de la transaction
+  - code : code INSEE de la commune
+  - bien : type de bien (maison ou appartement)
+  - nom : nom de la commune
+  - prix : prix de vente total
+  - surf : surface habitable
+  - prixm2 : prix au m2
+  
+2. Nettoyer le tableau en retirant les transactions dont le prix au m2 est supérieur à 10000€
+
+2. Créez un tableau montrant l'évolution par année des prix médian au m2 des maisons et des appartements.
+
+3. Créez un graphique montrant l'évolution mensuelle des prix au m2 des maisons et des appartements. 
 
 
+
+### Solution
+Vous devez obtenir les résultats suivants :
+
+
+```{r, echo=FALSE, warning=F, message = F}
+
+library(tidyverse, quietly = T, warn.conflicts=F)
+library(jsonlite,quietly = T)
+library(ggplot2)
+library(knitr)
+
+
+link<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/buildingref-france-demande-de-valeurs-foncieres-geolocalisee-millesime/exports/json?lang=fr&refine=com_code%3A%2294071%22&timezone=Europe%2FParis"
+
+
+
+don<-fromJSON(link)
+
+
+
+## (1) Extraction du tableau
+sel<-don %>% select(date = date_mutation,
+                    code = com_code,
+                    nom = com_name,
+                    bien = type_local,
+                    prix = valeur_fonciere,
+                    surf = surface_reelle_bati
+                    ) %>% 
+  filter(bien %in% c("Maison","Appartement")) %>%
+  mutate(prix_m2 = prix/surf) %>%
+  filter(prix_m2 <10000) %>%
+  arrange(date)
+
+kable(head(sel), digits=0,label = "Extrait du tableau de données")
+
+## (2) Tableau des prix au m2 par année et type de bien
+tab <- sel %>% mutate(annee = substr(date,1,4)) %>%
+               group_by(annee, bien) %>%
+               summarize(prix_m2 = median(prix_m2, na.rm=T))  %>%
+               pivot_wider(names_from=bien, values_from=prix_m2)
+
+kable(head(tab), digits=0,caption = "Prix médian de vente des maisons et appartement (en €/m2)", col.names = c("Année", "Ventes d'appartements", "Ventes de maisons"))
+
+## (3) Graphique de l'évolution mensuelle des ventes
+tab2 <- sel %>% mutate(date=as.Date(date),
+              mois = cut(date, breaks="month") )%>%
+               group_by(mois, bien) %>%
+               summarize(prix_m2 = median(prix_m2, na.rm=T)) %>%
+               mutate(mois = as.Date(mois))
+
+ ggplot(tab2) + aes(x=mois, y=prix_m2, color=bien)+ 
+                geom_line() + 
+                geom_smooth() +
+                scale_x_date("Mois de vente") +
+                scale_y_continuous("Prix de vente au m2 (médiane)")
+
+
+
+
+```
+
+
+## Exercice 3 : Automatisation 
+
+Ecrivez le progamme de l'exercice 2 sous la forme d'une fonction prenant en entrée le code INSEE d'une commune quelconque. 
 
