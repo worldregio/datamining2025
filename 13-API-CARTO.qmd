@@ -176,7 +176,7 @@ st_write(GP_com, "resul/geom/GP_com.geojson",delete_dsn = T)
 
 Une solution beaucoup plus rapide consiste à importer des données géographiques en faisant appel à une API. Celles-ci renvoient en général des fichiers au format Geojson qu'il sera facile de convertir ensuite au format sf.
 
-A titre d'exemple, nous allons utiliser le site Opendatasoft pour importer des données concernant l'indice de défavorisation sociale à l'échelle des IRIS dans le département du Val de Marne
+A titre d'exemple, nous allons utiliser le site Opendatasoft pour importer des données concernant l'indice de défavorisation sociale à l'échelle des IRIS dans la commune de Fontenay-sous-Bois
 
 
 ![Indice de déprivation sociale](img/indice_depsoc.jpg)
