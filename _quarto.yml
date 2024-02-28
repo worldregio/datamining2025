@@ -8,6 +8,7 @@ render:
       - 10-API-INTRO.qmd
       - 11-API-OPENDATASOFT.qmd
       - 12-API-exo.qmd
+      - 13-API-CARTO.qmd
 
 website:
   sidebar:
@@ -17,8 +18,10 @@ website:
         contents:
           - 10-API-INTRO.qmd
           - 11-API-OPENDATASOFT.qmd
-          - 12-API-exo.qmd          
+          - 12-API-exo.qmd  
       - section: "CARTO"
+        contents:
+          - 13-API-CARTO.qmd
 
 
 

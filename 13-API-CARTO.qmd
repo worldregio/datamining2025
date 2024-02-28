@@ -1,0 +1,229 @@
+---
+title: "Acquisition de données géographiques"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+
+Le but de ce chapitre est d'approfondir les méthodes de recueil de données lorsque celles-ci comportent une information géographique sur la localisation des objets étudiés. Nous allons donc charger non plus seulement des tableaux statistiques mais aussi de l'information géographique décrivant la localisation de poins, lignes ou polygones. Cela implique deux nouveautés :
+
+- l'utilisation du format de transfert GEOJSON qui est une extension de JSON au cas de l'information géographique et qui est manipulable dans R grâce au package **geojsonsf**. 
+- l'utilisation du package R **spatial features (sf)** qui est spécifiquement dédié au stockage et à la manipulation de données géographiques.
+
+Nous verrons en détail l'utilisation des données géographiques dans les chapitres ultérieurs et on se bornera ici à analyser comment recueillir cette information.
+
+
+## PREPARATION DU TRAVAIL
+
+
+### Packages
+
+On charge les packages habituels 
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE, error=FALSE)
+
+## Affichage de tableaux
+library(knitr)
+
+## Requêtes web
+library(httr)
+library(jsonlite)
+
+## Tidyverse & co
+library(dplyr, warn.conflicts = T, quietly = T)
+library(ggplot2)
+
+## Information géographique
+library(geojsonsf)
+library(sf)
+```
+
+### Organisation du projet
+
+On crée un dossier **resul** à l'intérieur duquel on va imporer les données statistiques (sous-dossier **stats**) et des données géométriques (sous-dossier **geom**). On ajoute un dossier **sf** où on placera les ficheirs au format spatial features de R.
+
+
+### Objectif Grand Paris
+
+On se donne comme ojectif d'acquérir des données géométriques décrivant les communes et les iris du Grand Paris qui regroupe quatre départements 75, 92, 93, 94 et quelques communes isolées de la grande couronne dont les codes sont : "95018","91027","91479","91432","91589","91326","91687". 
+
+Nous devons arriver à produire quatre fonds de carte :
+
+- par IRIS
+- par communes
+- par territoires
+- par département
+
+Il faudra faire en sorte que les résultats se superposent ...
+
+
+## Importation de fichiers SIG
+
+Beaucoup de données géographiques ont été conçues pour l'utilisation de systèmes d'information géographiques tels que ArcGIS ou QGIS. Historiquement ces données sont le plus souvent enregistrées et échangées dans le **format shapefile** qui se compose de trois ou quatre fichiers pour chaque fonds de carte :
+
+- carte.shp : fichier contenant la géométrie (contour des unités)
+- carte.shx : index des unités géométriques
+- carte.prj : fichier contenant la projection de la carte
+- carte.dbf : fichier de données attributaires (statistiques)
+
+Nous allons prendre à titre d'exemple l'acquisition d'un fichier des communes d'Ile de France disponible sur le site data.gouv.fr  à [cette adresse](https://www.data.gouv.fr/fr/datasets/les-communes-d-ile-de-france-idf/)
+
+Nous commeçons par télécharger le fichier avec la fonction `download.file()` et on stocke le résultat dans notre dossier "geom".
+
+
+```{r}
+myurl <- "https://www.data.gouv.fr/fr/datasets/r/5cd27d86-4859-40dc-b029-a215219eedf9"
+download.file(url = myurl, destfile = "resul/geom/idf_com.zip")
+list.files("resul/geom")
+```
+
+Nous avons téléchargé un fichier au format .zip que l'on va décompresse à l'aide de la fonction `unzip()`
+
+```{r}
+zipF<- "resul/geom/idf_com.zip"
+outDir<-"resul/geom/"
+unzip(zipF,exdir=outDir)
+list.files("resul/geom")
+```
+
+On voit bien apparaître les quatre fichiers qui définissent un shapefile et on pourrait les utiliser avec des logiciels tels que ArcGis, Qgis ou Magrit.
+
+### Importantion de shapefile -> R
+
+Nous allons maintenant importer le fonds de carte dans R à l'aide du package sf (spatial features) en utilisant la fonction `st_read()` :
+
+```{r}
+map<-st_read("resul/geom/communes-dile-de-france-au-01-janvier.shp")
+```
+
+On vérifie la classe de l'objet :
+
+```{r}
+class(map)
+```
+
+On voit qu'il s'agit à la fois d'un data.frame et d'un objet de type sf. Regardons plus en détail avec str()
+
+```{r}
+str(map)
+```
+
+Par rapport à un dataframe classique on trouve une nouvelle colonne appelée "geometry" ainsi que différents attributs tels que la projection. Nous trouvons donc en un seul fichier l'ensemble des informations normalement présents dans les quatre fichiers qui composaient le shappefile. 
+
+### Visualisation de la geometrie
+
+Pour visualiser rapidement  le fonds de carte, il suffit de taper la fonction rbase `plot` appliquée à la colonne *geometry* du fichier sf :
+
+```{r}
+plot(map$geometry)
+```
+
+### Extraction du data.frame sans les données géométriques
+
+Si l'on veut juste travailler sur les données statistiques du tableau, on peut retirer la géométrie du fichier pour revenir à un pur objet de type data.frame à l'aide de la fonction sf `st_drop_geometry()` : 
+
+```{r}
+don<-st_drop_geometry(map)
+class(don)
+head(don)
+```
+
+On constate que parmi les colonnes il existe à la fois une variable relative au département et une autre au code INSEE des communes. On peut donc procéder à une sélection sur ces deux critères afin d'aboutir à un fonds de carte du grand Paris.
+
+### Extraction des communes du grand Paris
+
+On utilise la condition "ou" pour filter à la fois sur les départements et les communes. 
+
+```{r}
+GP_com <- map %>% filter(numdep %in% c(75, 92, 93, 94) |  
+                           insee %in% c(95018,91027,91479,91432,91589,91326,91687))
+plot(GP_com$geometry)
+```
+
+### Cartographie rapide du résultat
+
+On utilise une petite astuce pour visualiser les départements. On commence par créer une variable de type factor et on applique un plot spécial sur cette variable. 
+
+```{r}
+GP_com$Dep<-as.factor(GP_com$numdep)
+plot(GP_com["Dep"])
+```
+
+### Sauvegarde du fichier sf
+
+On enregistre le fichier dans le format interne de R afin de ne pas avoir à répliquer toutes les étapes précédentes à l'aide de la fonction `saveRDS(). On en profite pour nettoyer le dossier en supprimant les fichiers dont on n'a plus  besoin à l'aide de la fonction `file.remove()` pour un fichier unique ou `unlink()`` pour un groupe de fichiers
+
+
+```{r} 
+file.remove("resul/geom/idf_com.zip")
+unlink("resul/geom/communes*")
+saveRDS(GP_com,"resul/geom/GP_com.RDS")
+```
+
+### Exportation au format Geojson
+
+Si l'on doit travailler avec des programmeurs qui utilisent Python, le plus simple est de réaliser une exportation au format geojson à l'aide de la fonction `st_write()` du package sf. On rajoute l'option delete_dsn=T pour écraser une éventuelle version antérieure.
+
+```{r}
+st_write(GP_com, "resul/geom/GP_com.geojson",delete_dsn = T)
+```
+
+
+## Importation via une API
+
+Une solution beaucoup plus rapide consiste à importer des données géographiques en faisant appel à une API. Celles-ci renvoient en général des fichiers au format Geojson qu'il sera facile de convertir ensuite au format sf.
+
+A titre d'exemple, nous allons utiliser le site Opendatasoft pour importer des données concernant l'indice de défavorisation sociale à l'échelle des IRIS dans le département du Val de Marne
+
+
+![Indice de déprivation sociale](img/indice_depsoc.jpg)
+
+### Identification du lien de téléchargement
+
+On procède à une sélection des IRIS de la région Ile-de-France puis on copie le lien permettant de récupérer les données au format shapefile
+
+![lien de télécargement ](img/indice_depsoc2.jpg)
+
+
+### Récupération du fichier au format sf
+
+```{r}
+myurl <- "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22FONTENAY-SOUS-BOIS%22&timezone=Europe%2FBerlin"
+map <- st_read(myurl)
+```
+
+
+
+### Visualisation du fonds de carte
+
+```{r}
+plot(map$geometry)
+```
+
+### Cartographie rapide d'indicateurs 
+
+```{r}
+plot(map["t1_rev_med"], main="Revenu médian")
+```
+
+```{r}
+plot(map["t1_txbac09"], main="Diplômes du supérieur")
+```
+
+```{r}
+plot(map["t1_txchom0"], main="Taux de chômage")
+```
+
+```{r}
+plot(map["t1_txouvr0"], main="Part des ouvriers")
+```
+
+
+### Exercice 
+
+1. Construire un indicateur synthétique combinant les quatre variables
+2. Cartographier cet indicateur
+3. Construire une fonction applicable à une commune quelconque.
