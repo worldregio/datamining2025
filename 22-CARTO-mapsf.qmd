@@ -1,0 +1,404 @@
+---
+title: "Carto. statique"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Packages utilitaires
+library(knitr)
+library(dplyr)
+
+# packages cartographiques
+library(sf)
+library(mapsf)
+
+# Palettes
+library(RColorBrewer)
+```
+
+
+
+
+##  Le package map_sf
+
+
+Le package *mapsf* permet de réaliser des cartes statiques de très haute qualité. Il a en effet été mis au point par des cartographes et des géomaticiens professionnels de l'UMS RIATE. Il prend la suite du package *cartography* dont la maintenance demeurera assuré quelque temps encore mais ne fera plus l'objet de développements futurs. Le package *mapsf* présente l'avantage d'être totalement compatibvle avec le package *sf* ce qui n'était pas autant le cas pour le package *cartography*, plus ancien, et créé pour être compatible avec l'ancien package *sp*. 
+
+On trouvera la documentation du package mapsf à l'adresse suivante : 
+
+https://riatelab.github.io/mapsf/index.html
+
+
+## Création d'un template cartographique 
+
+Nous allons dans un premier temps apprendre à créer un fonds de carte vierge mais comportant tout l'habillage nécessaire ("template"). Pour cela nous allons charger différentes couches cartographiques correspondant respectivement au département, aux communes et aux iris.
+
+Afin d'éviter les déformations, les fonds de carte sont projetés selon la projection de référence en France (code 2154)
+
+```{r, cache.comments=TRUE,comment=F,message=F, error=FALSE,echo=T}
+
+map_iris<-readRDS("data/RP/map_iris_csp.RDS") %>% st_transform(crs=2154)
+map_com <-readRDS("data/RP/map_com_csp.RDS") %>% st_transform(crs=2154)
+map_dep <-readRDS("data/RP/map_dep.RDS") %>% st_transform(crs=2154)
+```
+
+
+
+### tracé d'un fonds de carte vierge
+
+
+```{r }
+ mf_map(map_iris, type = "base")
+```
+
+
+
+
+### Superposition de couches
+
+On peut toutefois ajouter toute une série de paramètres supplémentaire (`col=`, `border=`, `lwd=`, ...) et superposer plusieurs fonds de carte avec le paramètre `add = TRUE`.  L'ajout de la fonction `layout` permet de rajouter un cadre une légende.
+
+
+```{r }
+# Trace les Iris avec des paramètres
+mf_map(map_iris,  type = "base", 
+       col = "lightyellow", border="gray80",lwd=0.3)
+# Ajoute les contours des communes
+mf_map(map_com,  type = "base", 
+       col = NA,border="black",lwd=0.6,
+       add = TRUE)
+# Ajoute les contours des départements
+mf_map(map_dep,  type = "base", 
+       col = NA,border="red",lwd=1,
+       add = TRUE)
+
+# Ajoute un cadre, un titre et des sources
+mf_layout(title = "Paris et Petite Couronne", 
+          credits = "Sources : IGN et INSEE")
+```
+
+
+### Ajout d'un thème
+
+On peut finalement modifier l'ensemble de la carte en lui ajoutant une instruction `mf_theme()` qui peut reprendre des styles existants ( *"default", "brutal", "ink", "dark", "agolalight", "candy", "darkula", "iceberg", "green", "nevermind", "jsk", "barcelona"*) mais aussi créer ses propres thèmes
+
+```{r }
+#Choix du thème
+mf_theme("dark")
+# Trace les Iris avec des paramètres
+mf_map(map_iris,  type = "base", 
+       col = "lightyellow", border="gray80",lwd=0.3)
+# Ajoute les contours des communes
+mf_map(map_com,  type = "base", 
+       col = NA,border="black",lwd=0.6,
+       add = TRUE)
+# Ajoute les contours des départements
+mf_map(map_dep,  type = "base", 
+       col = NA,border="red",lwd=1,
+       add = TRUE)
+
+mf_layout(title = "Theme dark", 
+          credits = "Sources : IGN et INSEE")
+```
+
+Autre exemple
+
+```{r}
+#Choix du thème
+mf_theme("agolalight")
+# Trace les Iris avec des paramètres
+mf_map(map_iris,  type = "base", 
+       col = "lightyellow", border="gray80",lwd=0.3)
+# Ajoute les contours des communes
+mf_map(map_com,  type = "base", 
+       col = NA,border="black",lwd=0.6,
+       add = TRUE)
+# Ajoute les contours des départements
+mf_map(map_dep,  type = "base", 
+       col = NA,border="red",lwd=1,
+       add = TRUE)
+
+mf_layout(title = "Theme agolalight", 
+          credits = "Sources : IGN et INSEE")
+```
+
+### Ajout de texte
+
+On peut ajouter une couche de texte avec la fonction `mf_label()`. Par exemple, on va ajouter à la carte précédente le nom des communes
+
+
+```{r }
+
+#Choix du thème
+mf_theme("agolalight")
+# Trace les Iris avec des paramètres
+mf_map(map_iris,  type = "base", 
+       col = "lightyellow", border="gray80",lwd=0.3)
+# Ajoute les contours des communes
+mf_map(map_com,  type = "base", 
+       col = NA,border="black",lwd=0.6,
+       add = TRUE)
+# Ajoute les contours des départements
+mf_map(map_dep,  type = "base", 
+       col = NA,border="red",lwd=1,
+       add = TRUE)
+
+# Ajoute les noms des départements
+mf_label(map_dep, 
+         var="dep_name",
+         cex=0.8, 
+         col="blue",
+         overlap = FALSE)
+
+# Ajoute un cadre, un titre et des sources
+mf_layout(title = "Communes et Iris de Paris + PC en 2019", 
+          frame = TRUE,
+          credits = "Sources : IGN et INSEE")
+```
+
+
+
+## Carte de stock 
+
+Une *carte de stock* représente la localisation de quantités que l'on peut aditionner et dont le total a un sens. Par exemple un nombre d'habitants, un nombre de ménages, un nombre d'automobiles. Ce quantités doivent être représentées par des figures (cercles, carrés, ...) dont la *surface est proportionelle au stock* afin que l'oeil du lecteur puisse les aditionner visuellement. 
+
+Dans le package **mapsf**, on réalise ce type de carte à l'aide de la fonction `mf_map()`en lui donnant le paramètre `type="prop"`.
+
+On va tenter à titre d'exemple de représenter la distribution des actifs et du taux de chômage dans le Val de Marne: 
+
+```{r}
+map_iris_94 <- map_iris %>% filter(dep_code=="94")
+map_com_94 <- map_com %>% filter(dep_code=="94")
+map_dep_94 <- map_dep %>% filter(dep_code=="94")
+map_iris_94$ACT<-map_iris_94$CHO+map_iris_94$EMP
+```
+
+
+
+
+### Carte de stock minimale 
+
+Les instructions minimales sont les suivantes : 
+
+```{r }
+# Trace les contours des communes
+mf_map(x= map_iris_94, 
+       type = "base")
+
+# Ajoute le nombre d'actifs
+mf_map(x =map_iris_94, 
+      type ="prop",
+      var = "ACT",
+      add=TRUE)
+```
+
+Mais le résultat est peu satisfaisant car les cercles sont trop grands. Il faut en pratique toujours effectuer un réglage de ceux-ci avec l'instruction `inches=`
+
+
+### Carte de stock habillée 
+
+
+```{r }
+
+mf_theme("agolalight")
+mf_map(map_iris_94, type = "base",  
+       col = "lightyellow",border="gray80", lwd=0.3)
+mf_map(map_com_94, type = "base", 
+       col = NA,border="black",lwd=1,add = TRUE)
+
+mf_map(map_iris_94, var = "ACT",type = "prop",
+  inches = 0.1, col = "red",leg_pos = "left",  
+  leg_title = "Nombre d'actifs", add=TRUE)
+
+mf_layout(title = "Distribution des actifs en 2019", 
+          frame = TRUE,
+          credits = "Sources : IGN et INSEE")
+
+```
+
+## Carte choroplèthe 
+
+Une *carte choroplèthe ou d'intensité* représente un phénomène relatif dont la somme n'a pas de sens. Par exemple, il serait absurde d'aditionner les % de logement HLM des IRIS du Val de Marne. Ces variables d'intensité caractèrisent donc l'état général d'une zone (*choros*) et elles vont être représentées par une couleur appliquée à toute la surface de la zone, d'où leur nom de *cartes choroplèthes*. 
+
+La fonction du package **mapsf** adaptée aux variables d'intensité est la fonction `mf_map()`munie du paramètre `type = "choro"`. 
+
+On va prendre l'exemple du taux de chômage 
+
+```{r}
+
+map_iris_94$TxCHO<-100*map_iris_94$CHO/map_iris_94$ACT
+```
+
+
+### Carte choroplèthe minimale
+
+Si on ne précise rien, la carte est réalisée à l'aide de la palette par défaut avec un découpage des classes en quantiles (effectifs égaux).
+
+
+```{r }
+# Carte choroplèthe
+mf_map(
+  x = map_iris_94, 
+  var = "TxCHO",
+  type = "choro")
+```
+
+
+### Choix d'une palette
+
+Plusieus packages proposent des palettes de couleurs. On prendra ici l'exemple du package RcolorBrewer. On commence par examiner la liste des palettes disponibles.
+
+```{r}
+library(RColorBrewer)
+display.brewer.all()
+```
+
+Puis on créer une palette personelle en indiquant son nom et le nombre de classes. Ici on choisit la palette orange-vert mais on va l'inverser pour que l'orange corresponde aux valeurs fortes
+
+```{r}
+display.brewer.pal(n = 10,name = "RdYlGn")
+mypal<-rev(brewer.pal(n = 10,name = "RdYlGn"))
+```
+
+
+
+
+### Carte choroplèthe habillée
+
+On peut arriver à une carte beaucoup plus satisfaisante en contrôlant l'ensemble des paramètres de couleur et de découpage des classes. Puis en superposant les contours de communes au dessus de la carte des IRIS pour faciliter le repérage. 
+
+
+
+```{r }
+# Choisir les classes et la palette
+mybreaks = c(0, 4, 6, 8, 10, 12, 14, 16, 18,20,30)
+
+# Tracer la carte choroplèthe
+mf_map( map_iris_94, var = "TxCHO",type = "choro",
+  breaks = mybreaks,pal = mypal,
+  border="white",col_na = "gray80",
+ leg_title = "% chômeurs",
+ leg_val_rnd = 0)
+# Ajouter les contours des communes
+mf_map(map_com_94, type = "base", col = NA,
+       border="black",lwd=1,add = TRUE)
+# Ajouter un cadre, un titre et des sources
+mf_layout(title = "Taux de chômage en 2019", 
+          frame = TRUE,
+          credits = "Sources : IGN et INSEE")
+```
+
+## Carte stock + choroplèthe
+
+
+Mais on peut aussi utiliser le type `prop_choro` 
+
+```{r }
+mf_theme("agolalight")
+mybreaks = c(0, 4, 6, 8, 10, 12, 14, 16, 18,20,30)
+
+mf_map(map_iris_94, type = "base",  
+       col = "gray80",border="white", lwd=0.3)
+mf_map(map_com_94, type = "base", 
+       col = NA,border="white",lwd=1,add = TRUE)
+mf_prop_choro( x = map_iris_94,  var = c("ACT", "TxCHO"), 
+  inches = 0.08, col_na = "grey", pal=mypal,
+  breaks = mybreaks, nbreaks = 4, lwd = 0.1,
+  leg_pos = c("right", "left"),leg_val_rnd = c(0,0),
+  leg_title = c("nb. actifs", "% chômeurs"),
+  add = TRUE)
+mf_layout(title = "Les actifs au chômage dans le Val de Marne au RP 2019",
+        frame = TRUE, credits = "Sources : IGN et INSEE")
+```   
+
+
+## Typologie
+
+On se propose d'examiner le cas d'une variable qualitative résultant d'une classification ascendante hiérarchique. On travaille cette fois-ci à l'échelle des communes
+
+### Extraction du tableau de contingence
+
+On élimine la géométrie et on extrait le tableau de contingence des actifs :
+
+
+```{r}
+# Extrait les colonnes utiles
+tab<-map_com %>% st_drop_geometry() %>% select(com_code, CHO, DIV, EMP, ETU, RET) %>% filter(is.na(CHO)==F)
+
+
+# Transforme en matrice de % en ligne
+mat<-as.matrix(tab[,-1])
+rownames(mat)<-tab$com_code
+
+matpct<-100*prop.table(mat,1)
+
+
+
+```
+
+### Calcul de l'ACP et de la CAH
+
+```{r}
+
+# Calcule l'AFC puis la CAH
+library(FactoMineR)
+acp<-PCA(matpct)
+cah<-HCPC(acp,nb.clust =4)
+
+# Récupère les résultats
+tab$typo <- cah$data.clust$clust
+
+# analyse les profils
+tabres<-cah$data.clust
+plot.catdes(catdes(tabres,6,proba = 1),level = 1,barplot = T)
+
+```
+
+
+### Cartographie des résultats
+
+```{r}
+
+# Ajoute la typo au fonds de carte
+map_com_typo <-map_com %>% select(com_code,com_name, geometry) %>%
+                                left_join(tab)
+
+# Transforme la typo en facteur
+map_com_typo$typoqual<-as.factor(map_com_typo$typo)
+levels(map_com_typo$typoqual) <- c("(1) Chômeurs et inactifs",
+                                   "(2) Profil moyen",
+                                   "(3) Actifs en emploi",
+                                   "(4) Etudiants et retraités")
+
+# Carte de typologie
+mf_theme("darkula")
+mf_map(map_com_typo, 
+       type = "typo",
+       var = "typoqual",
+       pal= c("orange","lightyellow","lightgreen","lightblue"),
+       leg_title = "Spécificités",
+       col_na = "gray70",
+       leg_no_data = "Données manquantes")
+# Ajoute les contours des départements
+mf_map(map_dep,  type = "base", 
+       col = NA,lwd=2,
+       add = TRUE)
+# Ajoute les noms des départements
+mf_label(map_dep, 
+         var="dep_name",
+         cex=0.8, 
+         col="black",
+         overlap = FALSE)
+
+mf_layout(title = "Typologie des profls activités des communes de Paris et Petite Couronne en 2019",
+        frame = TRUE, credits = "Sources : IGN et INSEE RP 2019",
+        arrow = F
+        )
+
+```
+

@@ -10,7 +10,8 @@ render:
       - 12-API-exo.qmd
       - 13-API-CARTO.qmd
       - 21-CARTO-ParisPC.qmd
-
+      - 22-CARTO-mapsf.qmd
+      
 website:
   sidebar:
     search: true
@@ -24,7 +25,7 @@ website:
         contents:
           - 13-API-CARTO.qmd
           - 21-CARTO-ParisPC.qmd
-
+          - 22-CARTO-mapsf.qmd
 
 
  

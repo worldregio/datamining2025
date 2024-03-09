@@ -4558,6 +4558,12 @@ vertical-align: -.125em;
  <span class="menu-text">Jointures</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-CARTO-mapsf.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Carto. statique</span></a>
+  </div>
+</li>
       </ul>
   </li>
     </ul>
@@ -4718,7 +4724,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>ovni</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Response [http://api.open-notify.org/astros.json]
-  Date: 2024-03-09 13:57
+  Date: 2024-03-09 15:56
   Status: 200
   Content-Type: application/json
   Size: 360 B</code></pre>
@@ -4739,7 +4745,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
  $ status_code: int 200
  $ headers    :List of 6
   ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  ..$ date                       : chr &quot;Sat, 09 Mar 2024 13:57:20 GMT&quot;
+  ..$ date                       : chr &quot;Sat, 09 Mar 2024 15:56:17 GMT&quot;
   ..$ content-type               : chr &quot;application/json&quot;
   ..$ content-length             : chr &quot;360&quot;
   ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4751,7 +4757,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
   .. ..$ version: chr &quot;HTTP/1.1&quot;
   .. ..$ headers:List of 6
   .. .. ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  .. .. ..$ date                       : chr &quot;Sat, 09 Mar 2024 13:57:20 GMT&quot;
+  .. .. ..$ date                       : chr &quot;Sat, 09 Mar 2024 15:56:17 GMT&quot;
   .. .. ..$ content-type               : chr &quot;application/json&quot;
   .. .. ..$ content-length             : chr &quot;360&quot;
   .. .. ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4766,8 +4772,8 @@ Attaching package: &#39;dplyr&#39;</code></pre>
   ..$ name      : logi(0) 
   ..$ value     : logi(0) 
  $ content    : raw [1:360] 7b 22 6d 65 ...
- $ date       : POSIXct[1:1], format: &quot;2024-03-09 13:57:20&quot;
- $ times      : Named num [1:6] 0 0.0367 0.186 0.1861 0.3374 ...
+ $ date       : POSIXct[1:1], format: &quot;2024-03-09 15:56:17&quot;
+ $ times      : Named num [1:6] 0 0.0367 0.1854 0.1854 0.336 ...
   ..- attr(*, &quot;names&quot;)= chr [1:6] &quot;redirect&quot; &quot;namelookup&quot; &quot;connect&quot; &quot;pretransfer&quot; ...
  $ request    :List of 7
   ..$ method    : chr &quot;GET&quot;
@@ -4794,11 +4800,11 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>ovni<span class="sc">$</span>headers<span class="sc">$</span>date</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Sat, 09 Mar 2024 13:57:20 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Sat, 09 Mar 2024 15:56:17 GMT&quot;</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>ovni[[<span class="st">&quot;headers&quot;</span>]][[<span class="st">&quot;date&quot;</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Sat, 09 Mar 2024 13:57:20 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Sat, 09 Mar 2024 15:56:17 GMT&quot;</code></pre>
 </div>
 </div>
 <p>On peut également afficher les noms des branches en partant de la racine puis en suivant l’arbre à l’aide de l’instruction <code>names()</code></p>
@@ -4969,13 +4975,13 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_ISS2</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                name craft                          date
-1    Jasmin Moghbeli   ISS Sat, 09 Mar 2024 13:57:21 GMT
-2   Andreas Mogensen   ISS Sat, 09 Mar 2024 13:57:21 GMT
-3   Satoshi Furukawa   ISS Sat, 09 Mar 2024 13:57:21 GMT
-4 Konstantin Borisov   ISS Sat, 09 Mar 2024 13:57:21 GMT
-5     Oleg Kononenko   ISS Sat, 09 Mar 2024 13:57:21 GMT
-6       Nikolai Chub   ISS Sat, 09 Mar 2024 13:57:21 GMT
-7       Loral O&#39;Hara   ISS Sat, 09 Mar 2024 13:57:21 GMT</code></pre>
+1    Jasmin Moghbeli   ISS Sat, 09 Mar 2024 15:56:17 GMT
+2   Andreas Mogensen   ISS Sat, 09 Mar 2024 15:56:17 GMT
+3   Satoshi Furukawa   ISS Sat, 09 Mar 2024 15:56:17 GMT
+4 Konstantin Borisov   ISS Sat, 09 Mar 2024 15:56:17 GMT
+5     Oleg Kononenko   ISS Sat, 09 Mar 2024 15:56:17 GMT
+6       Nikolai Chub   ISS Sat, 09 Mar 2024 15:56:17 GMT
+7       Loral O&#39;Hara   ISS Sat, 09 Mar 2024 15:56:17 GMT</code></pre>
 </div>
 </div>
 <p>Et si on est à l’aise avec les listes, on peut aussi exporter les résultats sous la forme d’une liste plutôt que d’un tableau, ce qui évite de répéter plusieurs fois la date d’extraction des données</p>
@@ -4997,7 +5003,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(x<span class="sc">$</span>Data, <span class="at">caption=</span><span class="fu">paste</span>(<span class="st">&quot;Passagers de l&#39;ISS :&quot;</span>, x<span class="sc">$</span>Update))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="table table-sm table-striped small">
-<caption>Passagers de l’ISS : Sat, 09 Mar 2024 13:57:21 GMT</caption>
+<caption>Passagers de l’ISS : Sat, 09 Mar 2024 15:56:17 GMT</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;">name</th>
