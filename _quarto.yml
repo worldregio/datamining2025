@@ -9,6 +9,7 @@ render:
       - 11-API-OPENDATASOFT.qmd
       - 12-API-exo.qmd
       - 13-API-CARTO.qmd
+      - 21-CARTO-ParisPC.qmd
 
 website:
   sidebar:
@@ -22,6 +23,7 @@ website:
       - section: "CARTO"
         contents:
           - 13-API-CARTO.qmd
+          - 21-CARTO-ParisPC.qmd
 
 
 

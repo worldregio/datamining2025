@@ -1,0 +1,274 @@
+---
+title: "Jointures"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+
+## PREPARATION DU TRAVAIL
+
+
+### Packages
+
+On charge les packages suivants
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE, error=FALSE)
+
+## Affichage de tableaux
+library(knitr)
+
+## Requêtes web
+library(jsonlite)
+
+## Tidyverse & co
+library(tidyverse)
+
+## Data.table (pour sa fonction d'importation fread)
+library(data.table)
+
+## Information géographique
+library(geojsonsf)
+library(sf)
+
+## Cartographie thématique
+library(mapsf)
+```
+
+### Acquisistion du fichier INSEE individus 
+
+On constitue un fichier des individus localisés dans les communes de Paris et Petite Couronne au RP de 2019 en reprenant le programme décrit dans le [Cours n°1  de Camille Signoretto](https://camille-sisi.github.io/Data-Mining-2024/01-Base-de-donnees.html).
+
+Le programme ci-dessous comporte la mention "eval=FALSE" car il ne dout être executé qu'une seule fois.
+
+```{r, eval=FALSE}
+## Récupération des fichiers INSEE zippé
+## On utilise pour cela un dossier "tmp" 
+download.file(url="https://www.insee.fr/fr/statistiques/fichier/6544333/RP2019_INDCVIZA_csv.zip",
+              destfile = "tmp/RP2019_INDCVIZA_csv.zip")
+unzip("tmp/RP2019_INDCVIZA_csv.zip", exdir = "tmp")
+
+## Lecture du fichier individu avec fread
+library(data.table)
+RP <- fread("tmp/FD_INDCVIZA_2019.csv", stringsAsFactors=TRUE)
+RP <- as.data.frame(RP)
+## Selection Paris PC 
+RP <- RP %>% filter(DEPT %in% c(75, 92, 93, 94))
+saveRDS(RP, "data/RP/RP_final.RDS")
+
+## Lecture du fichier de métadonnées
+meta <- read.csv(file = 'tmp/Varmod_INDCVI_2019.csv',
+                 sep = ";",
+                 encoding = "UTF-8",
+                 stringsAsFactors = TRUE)
+
+## Sauvegarde des deux fichiers
+saveRDS(meta, "data/RP/meta.RDS")
+
+## nettoyage du dossier  tmp
+unlink("tmp/*")
+```
+
+### Acquisition de la géométrie des IRIS
+
+On va maintenant acquérir le fichier des unités géographiques les plus petites (IRIS) pour la zone Paris + Petite Couronne. On se servira de ce fonds de carte des IRIS pour générer ensuite ceux des unités géographiques de niveau supérieur : communes, territoires, départements ...
+
+Comme les IRIS changent au cours du temps, il faut choisir le bon "millésime" pour que la correspondance soit possible avec les données individuelles du recensement. On utilise un lien de téléchargement depuis la [base des iris millésimé accessible sur public.opendatasoft](https://public.opendatasoft.com/explore/dataset/georef-france-iris-millesime)
+
+Comme précédemment, ce programme est à executer une seule fois d'où la mention eval=FALSE dans l'en-tête du chunk.
+
+
+```{r, eval=FALSE}
+
+## Lien de téléchargement IDF 2019 au forma geojson
+myurl <-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-france-iris-millesime/exports/geojson?lang=fr&refine=year%3A%222019%22&refine=reg_name%3A%22%C3%8Ele-de-France%22&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FBerlin"
+
+## téléchargement et conversion au format sf
+geo<-geojson_sf(myurl)
+geo<-geo %>% select(iris_type,
+                    iris_code, 
+                    iris_name,
+                    com_code= com_arm_code,
+                    com_name = com_arm_name,
+                    dep_code,
+                    dep_name,
+                    geometry)
+
+## Nettoyage des chaînes de caractère
+clean_char <- function(x) {
+  y<-gsub('\\[\"','',x)
+  y<-gsub('\"\\]','',y)
+  return(y)
+}
+geo <- geo %>% mutate(iris_code = clean_char(iris_code),
+                      iris_name = clean_char(iris_name),
+                      com_code = clean_char(com_code),
+                      com_name = clean_char(com_name),
+                      dep_code = clean_char(dep_code),
+                      dep_name = clean_char(dep_name),
+                      )
+
+
+
+## Selection Paris PC
+geo<-geo %>% filter(dep_code %in% c("75","92","93","94"))
+#plot(geo["iris_type"])
+
+## Sauvegarde
+
+saveRDS(geo,"data/RP/map_iris.RDS" )
+
+
+
+```
+
+```{r}
+## Carto rapide
+map_iris <- readRDS("data/RP/map_iris.RDS")
+plot(map_iris["dep_code"], main = "IRIS")
+```
+
+
+
+
+### Agrégation spatiale des iris en  communes
+
+On agrège par le nom et le code de la commune et on conserve le nom et le code du département. 
+
+```{r}
+map_iris <- readRDS("data/RP/map_iris.RDS")
+map_com <- map_iris %>% group_by(com_code, com_name) %>% 
+                  summarise(dep_code = max(dep_code),
+                            dep_name = max(dep_name))
+plot(map_com["dep_code"], main = "Communes")
+saveRDS(map_com, "DATA/RP/map_com.RDS")
+```
+
+### Agrégation spatiale des iris en  département
+
+On agrège simplement par le nom et le code du département.
+
+```{r}
+map_iris <- readRDS("data/RP/map_iris.RDS")
+map_dep <- map_iris %>% group_by(dep_code, dep_name) %>% 
+                  summarise()
+plot(map_dep["dep_code"], main = "Départements")
+saveRDS(map_dep, "DATA/RP/map_dep.RDS")
+```
+
+
+### Agrégation des données RP par iris
+
+
+Nous allons maintenant examiner comment agréger les données individuelles de l'INSEE par iris, commune ou département et effectuer une jointure avec les fonds de cartes que nous avons préparé. On va s'appuyer pour cela sur le [cours de datamining n°2 de Camille Signoretto](https://camille-sisi.github.io/Data-Mining-2024/05-Questions-fouille-donnees.html).
+
+
+On commence par recharger la fonction `somme()`que nous avions créé : 
+
+```{r}
+somme <- function(data, var_gpe, nom_var){
+  som <- data %>% 
+    group_by({{var_gpe}}) %>% 
+    count({{nom_var}}, wt=IPONDI) %>% 
+    mutate(n=round(n)) %>% 
+    pivot_wider(names_from = {{nom_var}}, values_from = n)
+  
+  return(som)
+}
+```
+
+
+Nous l'utilisons pour créer un tableau des individus par CSP simplifiées en 5 catégories et par IRIS  :
+
+```{r}
+# Chargement du tableau
+indiv <- readRDS("data/RP/RP_final.RDS")
+
+# Création de CSP simplifiées
+indiv <- indiv %>% 
+  mutate(TACT5=case_when(TACT == "11" ~ "EMP",
+                             TACT == "12" ~ "CHO",
+                             TACT == "22" ~ "ETU",
+                             TACT == "21" ~ "RET",
+                             TRUE ~ "DIV"))
+
+# Agrégation par IRIS  
+iris_csp <- somme(data = indiv,
+                 var_gpe = IRIS,
+                 nom_var = TACT5)
+             
+
+
+
+```
+
+
+### Jointure des CSP avec la géométrie des IRIS
+
+On procède à la jointure des deux fichiers iris en utilisant le code des iris.
+
+```{r}
+map_iris <- readRDS("data/RP/map_iris.RDS")
+map_iris_csp<- left_join(map_iris, iris_csp,by = c("iris_code"="IRIS"))
+saveRDS(map_iris_csp, "data/RP/map_iris_CSP.RDS")
+```
+
+
+On examine quels IRIS ne sont pas renseignés en croisant cette information avec le type d'IRIS.
+
+```{r}
+map_iris_csp$missing<-case_when(is.na(map_iris_csp$CHO)  ~ "Manquant",
+                                TRUE ~ "OK"
+                               )
+plot(map_iris_csp["missing"], main = "IRIS sans données")
+tab<-table(map_iris_csp$missing,map_iris_csp$iris_type)
+addmargins(tab)
+```
+
+On constate qu'il manque des données pour 96 IRIS sur 2749.  Il s'agit dans la plupart des cas d'iris correspondant à des zones industrielles ou des forêts dont le nombre d'habitant est trop faible pour que les données soient mises à disposition au niveau individuel. Cela concerne également 7 communes de petites tailles et 5 iris d'habitat.
+
+### Création d'un fichier des CSP par commune
+
+On reprend les programmes précédents par commune
+
+```{r}
+# Chargement du tableau
+indiv <- readRDS("data/RP/RP_final.RDS")
+
+# Création de CSP simplifiées
+indiv <- indiv %>% 
+  mutate(TACT5=case_when(TACT == "11" ~ "EMP",
+                             TACT == "12" ~ "CHO",
+                             TACT == "22" ~ "ETU",
+                             TACT == "21" ~ "RET",
+                             TRUE ~ "DIV")) 
+
+# Extraction du code communal 
+indiv<- indiv %>%   mutate(com_code = substr(IRIS,1,5))
+
+# Agrégation par IRIS  
+com_csp <- somme(data = indiv,
+                 var_gpe = com_code,
+                 nom_var = TACT5)
+
+# Chargement du fonds de carte communal
+map_com <- readRDS("data/RP/map_com.RDS")
+
+# Jointure
+map_com_csp <- left_join(map_com, com_csp)
+
+# Sauvegarde
+saveRDS(map_com_csp, "data/RP/map_com_csp.RDS")
+
+# Analyse des valeurs manquantes
+map_com_csp$missing<-case_when(is.na(map_com_csp$CHO)  ~ "Manquant",
+                                TRUE ~ "OK"
+                               )
+plot(map_com_csp["missing"], main= "Communes sans données")
+
+             
+```
+
+On retrouve les 7 communes manquantes pour lesquelles l'INSEE ne fournit pas les données dans le fichier détail des individus.

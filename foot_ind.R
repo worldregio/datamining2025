@@ -3,6 +3,17 @@ library(dplyr)
 library(sf)
 library(tmap)
 library(mapsf)
+
+
+map<-st_read("data/foot/georef-france-commune.geojson")
+paris<-map %>% filter(com_name_upper =="PARIS")
+map$dis<-as.numeric(st_distance(map,paris))
+summary(map$dis)
+map2<-map %>% filter(dis < 12000) %>% st_as_sf()
+plot(map2$geometry)
+
+
+
 x<-fread("data/foot/licence2017.csv",encoding = "UTF-8")
 
 

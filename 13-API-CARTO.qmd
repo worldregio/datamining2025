@@ -1,5 +1,5 @@
 ---
-title: "Acquisition de données géographiques"
+title: "Acquisition"
 author: "Claude Grasland"
 format: html
 embed-resources: true
