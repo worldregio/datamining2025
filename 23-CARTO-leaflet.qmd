@@ -489,6 +489,84 @@ map
 
 ```
 
+### Ajout d'une couche de polygones
+
+On décide d'ajouter le polygone donnant le contour de la commune de Sucy-en-Brie ainsi que celui des quarties Iris.
+
+```{r}
+com<-readRDS("data/RP/map_com.RDS") %>% filter(com_name=="Sucy-en-Brie") 
+
+iris <- readRDS("data/RP/map_iris.RDS") %>% filter(com_name=="Sucy-en-Brie")
+
+# Calcul du diamètre des cercles
+  sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
+
+# Choix des classes 
+    mycut<-c(1960,1970,1980,2000,2010,2016)
+    
+# Choix de la palette (c'est une fonction !)
+   mypal <- colorBin('Spectral', 
+                       reverse = T,
+                       sel$anc,
+                       bins=mycut)
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(sel)), function(i) {
+      paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
+               paste("Equipement  : " ,sel$equ[i]), '<br>', 
+               paste("Type        : " ,sel$typ[i]), '<br>',               
+               paste("Surface     : ", sel$sup[i]), '<br>',
+               paste("Ancienneté  : " ,sel$anc[i]))
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+               # Tuiles
+               addTiles(group = "OSM ") %>%
+               addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
+               addProviderTiles('Esri.WorldImagery', group = "ESRI photo.") %>%
+              # Contrôle des tuiles
+               addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
+                                 position = "bottomright") %>%
+            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
+              addPolygons(data = iris,
+                          fillOpacity = 0.1,
+                          color="red",
+                          weight = 0.5) %>%
+               addPolygons(data = com,
+                          fillOpacity = 0,
+                          color="red",
+                          weight = 2) %>%
+  
+             addCircleMarkers(data=sel,
+                              radius= ~myradius,       # diamètre
+                              stroke=TRUE,             # bordure   
+                              weight=1  ,              # épaisseur de la bordure
+                              color= "black",          # couleur de la bordure
+                              opacity = 0.7  ,         # opacité de la bordure 
+                              fillOpacity = 0.5,       # opacité du remplissage
+                              fillColor = ~mypal(anc), # couleur de remplissage
+                               popup = mypopups,       # Popup !
+                              )    %>%
+              addLegend(data = sel,
+                      pal = mypal, 
+                      title = "Ancienneté",
+                      values =~anc, 
+                      position = 'topright') 
+            
+                              
+
+map
+
+
+
+```
+
+
+
+
 
 ## Exercice d'application
 
@@ -531,12 +609,21 @@ kable(head(sel))
 Construisez une première carte indiquant simplement la localisation des courts de tennis sous la forme de cercles rouge de rayon 4 pixels et d'opacité 0.5. La carte devra être centrée sur Paris et couvrir Paris et la Petite Couronne.
 
 ```{r, echo=FALSE}
+dep<-readRDS("data/RP/map_dep.RDS")
+com<-readRDS("data/RP/map_com.RDS")
+
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
             setView(lat = 48.85, lng=2.35, zoom = 10) %>%
+            addPolygons(data=dep,
+                        weight=2,
+                        fillOpacity=0.1)%>%
+              addPolygons(data=com,
+                        weight=0.5,
+                        fillOpacity=0)%>%
              addCircleMarkers(data=sel,
                               radius = 4,
-                              opacity= 0.5,
+                              opacity= 0.8,
                               fillColor =  "red",
                               stroke=F)
 
@@ -563,6 +650,12 @@ Construisez une seconde carte permettant de repérer l'ancienneté des terrains 
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
             setView(lat = 48.85, lng=2.35, zoom = 10) %>%
+            addPolygons(data=dep,
+                        weight=2,
+                        fillOpacity=0.1)%>%
+              addPolygons(data=com,
+                        weight=0.5,
+                        fillOpacity=0)%>%
              addCircleMarkers(data=sel,
                               radius= 4,    # diamètre
                               stroke=TRUE,          # bordure   
@@ -581,6 +674,7 @@ map <- leaflet() %>%
                               
 
 map
+#saveWidget(map,"Widget.html")
 
 ```
 
