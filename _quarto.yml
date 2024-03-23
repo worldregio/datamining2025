@@ -11,6 +11,7 @@ render:
       - 13-API-CARTO.qmd
       - 21-CARTO-ParisPC.qmd
       - 22-CARTO-mapsf.qmd
+      - 23-CARTO-leaflet.qmd
       
 website:
   sidebar:
@@ -26,7 +27,7 @@ website:
           - 13-API-CARTO.qmd
           - 21-CARTO-ParisPC.qmd
           - 22-CARTO-mapsf.qmd
-
+          - 23-CARTO-leaflet.qmd
 
  
 format:

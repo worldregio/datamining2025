@@ -1,0 +1,79 @@
+---
+title: "Exo séance n°2"
+output: html_notebook
+---
+
+
+## PREPARATION DU TRAVAIL
+
+
+### Packages
+
+On charge les packages habituels 
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE, error=FALSE)
+
+## Affichage de tableaux
+library(knitr)
+
+## Requêtes web
+library(httr)
+library(jsonlite)
+
+## Tidyverse & co
+library(dplyr, warn.conflicts = T, quietly = T)
+library(ggplot2)
+
+## Information géographique
+library(geojsonsf)
+library(sf)
+```
+
+
+## EXO SEANCE n°2
+
+Une solution beaucoup plus rapide consiste à importer des données géographiques en faisant appel à une API. Celles-ci renvoient en général des fichiers au format Geojson qu'il sera facile de convertir ensuite au format sf.
+
+A titre d'exemple, nous allons utiliser le site Opendatasoft pour importer des données concernant l'indice de défavorisation sociale à l'échelle des IRIS dans la commune de Fontenay-sous-Bois
+
+
+### Récupération du fichier au format sf
+
+```{r}
+myurl <- "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22FONTENAY-SOUS-BOIS%22&timezone=Europe%2FBerlin"
+map <- st_read(myurl)
+```
+
+
+
+### Visualisation du fonds de carte
+
+```{r}
+plot(map$geometry)
+```
+
+### Cartographie rapide d'indicateurs 
+
+```{r}
+plot(map["t1_rev_med"], main="Revenu médian")
+```
+
+```{r}
+plot(map["t1_txbac09"], main="Diplômes du supérieur")
+```
+
+```{r}
+plot(map["t1_txchom0"], main="Taux de chômage")
+```
+
+```{r}
+plot(map["t1_txouvr0"], main="Part des ouvriers")
+```
+
+
+### Exercice 
+
+1. Construire un indicateur synthétique combinant les quatre variables
+2. Cartographier cet indicateur
+3. Construire une fonction applicable à une commune quelconque.
