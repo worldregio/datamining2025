@@ -73,21 +73,8 @@ Nous allons prendre à titre d'exemple l'acquisition d'un fichier des communes d
 
 Nous commeçons par télécharger le fichier avec la fonction `download.file()` et on stocke le résultat dans notre dossier "geom".
 
+Nous avons téléchargé un fichier au format .zip que l'on va décompresser.
 
-```{r}
-myurl <- "https://www.data.gouv.fr/fr/datasets/r/5cd27d86-4859-40dc-b029-a215219eedf9"
-download.file(url = myurl, destfile = "resul/geom/idf_com.zip")
-list.files("resul/geom")
-```
-
-Nous avons téléchargé un fichier au format .zip que l'on va décompresse à l'aide de la fonction `unzip()`
-
-```{r}
-zipF<- "resul/geom/idf_com.zip"
-outDir<-"resul/geom/"
-unzip(zipF,exdir=outDir)
-list.files("resul/geom")
-```
 
 On voit bien apparaître les quatre fichiers qui définissent un shapefile et on pourrait les utiliser avec des logiciels tels que ArcGis, Qgis ou Magrit.
 
@@ -96,7 +83,7 @@ On voit bien apparaître les quatre fichiers qui définissent un shapefile et on
 Nous allons maintenant importer le fonds de carte dans R à l'aide du package sf (spatial features) en utilisant la fonction `st_read()` :
 
 ```{r}
-map<-st_read("resul/geom/communes-dile-de-france-au-01-janvier.shp")
+map<-st_read("resul/geom/idf_com/communes-dile-de-france-au-01-janvier.shp")
 ```
 
 On vérifie la classe de l'objet :
@@ -159,7 +146,7 @@ On enregistre le fichier dans le format interne de R afin de ne pas avoir à ré
 
 ```{r} 
 file.remove("resul/geom/idf_com.zip")
-unlink("resul/geom/communes*")
+#unlink("resul/geom/communes*")
 saveRDS(GP_com,"resul/geom/GP_com.RDS")
 ```
 

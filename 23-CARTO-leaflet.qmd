@@ -232,50 +232,38 @@ Si vous avez bien compris ce cours, vous pourrez trouver des réponses en lisant
 ## Cartographie de points
 
 
-Nous allons prendre comme exemple la base des équipements sportifs qui sera utilisée par la suite pour le projet de fin de semestre. Cette base peut être obtenue à travers deux API différentes :
+Nous allons prendre comme exemple un fichier contenant la localisation des tous les terrains de football de France en 2017.
 
-- **Base permanente des équipements sportifs et de loisirs** : il s'agit d'une base qui est mise à jour en temps réel et est donc très utile lorsque l'on veut actualiser sa source régulièrement :
-https://equipements.sports.gouv.fr/explore/dataset/data-es/table/
+```{r}
+don<-st_read("data/foot/res_equipements_2017.shp")
+```
 
-- **Base des équipements sportifs et de loisirs en 2017** : il s'agit d'une photographie de la situation en 2017 qui ne fait plus l'objet de maintenance. Elle est accessible par le site public.opendasoft qui a déjà été vue dans le premier cours
-https://public.opendatasoft.com/explore/dataset/res_equipements_2017/information/?disjunctive.caracteristiques&sort=equdatecreation
 
 
 
 ### Préparation des données
 
-
-On télécharge à titre d'exemple la base des équipements sportifs et de loisirs de la commune de Sucy-en-Brie en 2017 à l'aide du site public.opendasoft. On utilise le format d'importation geojson et on crée un objet de type spatial features. On ne sélectionne que quelques caractéristiques des équipements
+On sélectionne les variables utiles et on ne retient que les terrains situés dans Paris + PC
 
 ```{r}
-myurl <- "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/res_equipements_2017/exports/geojson?lang=fr&refine=comlib%3A%22Sucy-en-Brie%22&timezone=Europe%2FBerlin"
 
-don<-geojson_sf(myurl) %>% st_as_sf()
 
-sel<-don %>% select(id = insnumeroinstall,
+
+sel<-don %>% select(id = insnumeroin,
+                    com_code = cominsee,
+                    com_nom = comlib,
                     ins = insnom,
-                    equ = equnom,
-                    typ =  equipementtypelib,
-                    anc = equanneeservice,
-                    sup = equsurfaceevolution
+                    anc = equanneeser,
+                    sup = equsurfacee
                     ) %>%
               mutate(anc=as.numeric(anc),
                      sup=as.numeric(sup)) %>%
               filter(is.na(anc)==F,
-                     is.na(sup)==F)
+                     is.na(sup)==F,
+                     substr(com_code,1,2) %in% c("75","92","93","94"))
 
 
-kable(head(sel))
 
-
-```
-
-
-On décide de repérer uniquement les terrains de rugby, de football et de tennis 
-
-```{r}
-sel <- sel %>% filter(typ %in% c("Court de tennis","Terrain de football","Terrain de rugby")) %>%
-              mutate(typ=as.factor(typ))
 summary(sel)
 ```
 
@@ -292,7 +280,7 @@ On commence par créer une carte des localisations des installations sportives a
 # Réalisation de la carte
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
-            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
+            setView(lat = 48.84, lng=2.33, zoom = 11) %>%
              addCircleMarkers(data=sel)
 
 map
@@ -313,7 +301,7 @@ On règle la taille des cercles en fonction de la surface des installations
 # Réalisation de la carte
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
-            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
   
              addCircleMarkers(data=sel,
                               radius= ~myradius,    # diamètre
@@ -335,7 +323,7 @@ On fait varier la couleur des cercles en fonction due l'ancienneté des installa
   sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
 
 # Choix des classes 
-    mycut<-c(1960,1970,1980,2000,2010,2016)
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
     
 # Choix de la palette (c'est une fonction !)
    mypal <- colorBin('Spectral', 
@@ -346,7 +334,7 @@ On fait varier la couleur des cercles en fonction due l'ancienneté des installa
 # Réalisation de la carte
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
-            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
   
              addCircleMarkers(data=sel,
                               radius= ~myradius,    # diamètre
@@ -380,7 +368,7 @@ On rajoute un popup pour afficher toutes les informations sur chaque terrain
   sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
 
 # Choix des classes 
-    mycut<-c(1960,1970,1980,2000,2010,2016)
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
     
 # Choix de la palette (c'est une fonction !)
    mypal <- colorBin('Spectral', 
@@ -390,8 +378,6 @@ On rajoute un popup pour afficher toutes les informations sur chaque terrain
 # Préparation des popups
       mypopups <- lapply(seq(nrow(sel)), function(i) {
       paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
-               paste("Equipement  : " ,sel$equ[i]), '<br>', 
-               paste("Type        : " ,sel$typ[i]), '<br>',               
                paste("Surface     : ", sel$sup[i]), '<br>',
                paste("Ancienneté  : " ,sel$anc[i]))
             
@@ -402,7 +388,7 @@ On rajoute un popup pour afficher toutes les informations sur chaque terrain
 # Réalisation de la carte
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
-            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
   
              addCircleMarkers(data=sel,
                               radius= ~myradius,       # diamètre
@@ -435,7 +421,7 @@ On fait varier les tuiles pour offrir la possibilité de visualiser la position 
   sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
 
 # Choix des classes 
-    mycut<-c(1960,1970,1980,2000,2010,2016)
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
     
 # Choix de la palette (c'est une fonction !)
    mypal <- colorBin('Spectral', 
@@ -445,8 +431,6 @@ On fait varier les tuiles pour offrir la possibilité de visualiser la position 
 # Préparation des popups
       mypopups <- lapply(seq(nrow(sel)), function(i) {
       paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
-               paste("Equipement  : " ,sel$equ[i]), '<br>', 
-               paste("Type        : " ,sel$typ[i]), '<br>',               
                paste("Surface     : ", sel$sup[i]), '<br>',
                paste("Ancienneté  : " ,sel$anc[i]))
             
@@ -463,7 +447,7 @@ map <- leaflet() %>%
               # Contrôle des tuiles
                addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
                                  position = "bottomright") %>%
-            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
   
              addCircleMarkers(data=sel,
                               radius= ~myradius,       # diamètre
@@ -494,15 +478,15 @@ map
 On décide d'ajouter le polygone donnant le contour de la commune de Sucy-en-Brie ainsi que celui des quarties Iris.
 
 ```{r}
-com<-readRDS("data/RP/map_com.RDS") %>% filter(com_name=="Sucy-en-Brie") 
+com<-readRDS("data/RP/map_com.RDS") 
 
-iris <- readRDS("data/RP/map_iris.RDS") %>% filter(com_name=="Sucy-en-Brie")
+dep <- readRDS("data/RP/map_dep.RDS") 
 
 # Calcul du diamètre des cercles
   sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
 
 # Choix des classes 
-    mycut<-c(1960,1970,1980,2000,2010,2016)
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
     
 # Choix de la palette (c'est une fonction !)
    mypal <- colorBin('Spectral', 
@@ -512,8 +496,7 @@ iris <- readRDS("data/RP/map_iris.RDS") %>% filter(com_name=="Sucy-en-Brie")
 # Préparation des popups
       mypopups <- lapply(seq(nrow(sel)), function(i) {
       paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
-               paste("Equipement  : " ,sel$equ[i]), '<br>', 
-               paste("Type        : " ,sel$typ[i]), '<br>',               
+               
                paste("Surface     : ", sel$sup[i]), '<br>',
                paste("Ancienneté  : " ,sel$anc[i]))
             
@@ -530,12 +513,12 @@ map <- leaflet() %>%
               # Contrôle des tuiles
                addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
                                  position = "bottomright") %>%
-            setView(lat = 48.77, lng=2.53, zoom = 13) %>%
-              addPolygons(data = iris,
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+              addPolygons(data = com,
                           fillOpacity = 0.1,
                           color="red",
                           weight = 0.5) %>%
-               addPolygons(data = com,
+               addPolygons(data = dep,
                           fillOpacity = 0,
                           color="red",
                           weight = 2) %>%
@@ -565,118 +548,14 @@ map
 ```
 
 
+### Sauvegarde du résultat
 
+on peut transformer le résultat en widget html pour réutilisation dans une page web
 
-
-## Exercice d'application
-
-Construire une carte interactive de la localisation des courts de tennis en Ile de France en utilisant les données les plus récentes.
-
-
-### Acquisition des données
-
- Importez un fichier de tous les courts de tennisde France au format geojson que vous transformerez au format sf. Puis sélectionnez les quatre départements 75, 92, 93, 94
-
-
-```{r, echo=FALSE}
-myurl<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/res_equipements_2017/exports/geojson?lang=fr&refine=equipementtypelib%3A%22Court%20de%20tennis%22&timezone=Europe%2FBerlin"
-
-don<-geojson_sf(myurl) %>% st_as_sf() 
-
-sel<-don %>% select(id = insnumeroinstall,
-                    com = cominsee,
-                    ins = insnom,
-                    equ = equnom,
-                    typ =  equipementtypelib,
-                    anc = equanneeservice,
-                    sup = equsurfaceevolution
-                    ) %>%
-              mutate(anc=as.numeric(anc),
-                     sup=as.numeric(sup)) %>%
-              filter(is.na(anc)==F,
-                     is.na(sup)==F) %>%
-              filter(substr(com,1,2) %in% c("75","92","93","94"))
-
-
-kable(head(sel))
+```{r}
+saveWidget(map, "data/foot/map_foot.html",selfcontained = T)
 ```
 
-
-
-
-### Première carte : localisation
-
-Construisez une première carte indiquant simplement la localisation des courts de tennis sous la forme de cercles rouge de rayon 4 pixels et d'opacité 0.5. La carte devra être centrée sur Paris et couvrir Paris et la Petite Couronne.
-
-```{r, echo=FALSE}
-dep<-readRDS("data/RP/map_dep.RDS")
-com<-readRDS("data/RP/map_com.RDS")
-
-map <- leaflet() %>% 
-            addProviderTiles('Esri.WorldTopoMap') %>%
-            setView(lat = 48.85, lng=2.35, zoom = 10) %>%
-            addPolygons(data=dep,
-                        weight=2,
-                        fillOpacity=0.1)%>%
-              addPolygons(data=com,
-                        weight=0.5,
-                        fillOpacity=0)%>%
-             addCircleMarkers(data=sel,
-                              radius = 4,
-                              opacity= 0.8,
-                              fillColor =  "red",
-                              stroke=F)
-
-map
-
-```
-
-### Deuxième carte : Ancienneté
-
-Construisez une seconde carte permettant de repérer l'ancienneté des terrains de tennis.
-
-```{r, echo=FALSE}
-
-# Choix des classes 
-    mycut<-c(0,1960,1970,1980,2000,2010,2020)
-    
-# Choix de la palette (c'est une fonction !)
-   mypal <- colorBin('Spectral', 
-                       reverse = T,
-                       sel$anc,
-                       bins=mycut)
-  
-# Réalisation de la carte
-map <- leaflet() %>% 
-            addProviderTiles('Esri.WorldTopoMap') %>%
-            setView(lat = 48.85, lng=2.35, zoom = 10) %>%
-            addPolygons(data=dep,
-                        weight=2,
-                        fillOpacity=0.1)%>%
-              addPolygons(data=com,
-                        weight=0.5,
-                        fillOpacity=0)%>%
-             addCircleMarkers(data=sel,
-                              radius= 4,    # diamètre
-                              stroke=TRUE,          # bordure   
-                              weight=1  ,           # épaisseur de la bordure
-                              color= "black",      # couleur de la bordure
-                              opacity = 0.7  ,       # opacité de la bordure 
-                              fillOpacity = 0.8,    # opacité 
-                              fillColor = ~mypal(anc)
-                              )    %>%
-              addLegend(data = sel,
-                      pal = mypal, 
-                      title = "Ancienneté",
-                      values =~anc, 
-                      position = 'topright') 
-            
-                              
-
-map
-#saveWidget(map,"Widget.html")
-
-```
 
 
 

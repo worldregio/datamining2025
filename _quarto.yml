@@ -12,6 +12,7 @@ render:
       - 21-CARTO-ParisPC.qmd
       - 22-CARTO-mapsf.qmd
       - 23-CARTO-leaflet.qmd
+      - 31-PROJET-data.qmd
       
 website:
   sidebar:
@@ -28,6 +29,10 @@ website:
           - 21-CARTO-ParisPC.qmd
           - 22-CARTO-mapsf.qmd
           - 23-CARTO-leaflet.qmd
+      - section: "PROJET"
+        contents:
+          - 31-PROJET-data.qmd
+
 
  
 format:

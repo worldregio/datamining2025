@@ -1,0 +1,323 @@
+---
+title: "Projet-Données"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  echo=TRUE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="80")
+opts_chunk$set(echo=TRUE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=FALSE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               options(scipen=999))
+opts_knit$set(width=75)
+
+# Packages utilitaires
+library(tidyverse)
+#library(rmdformats)
+
+# Packages graphiques
+library(ggplot2)
+library(RColorBrewer)
+
+#packages cartographiques 
+library(sf)
+#library(leaflet)
+#library(htmlwidgets)
+#library(htmltools)
+
+# Appel d'API
+#library(httr)
+#library(jsonlite)
+library(geojsonsf)
+
+```
+
+
+L'objectif de ce chapitre est de charger une base de données originale, de la mettre en forme, de la nettoyer et de préparer une série de fonctions permettant de l'exploiter en vue de la création d'une application shiny.
+
+
+## Présentation 
+
+
+La base qui nous intéresse est un invetaire des licenciés sportifs par commune, âge, sexe de 2011 à 2023 établie par le ministère des sports et accessible à l'aide de [ce lien](https://www.data.gouv.fr/fr/datasets/donnees-geocodees-issues-du-recensement-des-licences-et-clubs-aupres-des-federations-sportives-agreees-par-le-ministere-charge-des-sports/)
+
+La base est décrite ainsi : 
+
+*Le recensement annuel des licences auprès des fédérations sportives agréées par le ministère en charge des sports permet de mesurer le niveau et l’évolution dans le temps de la pratique sportive encadrée. Ces statistiques fournissent un éclairage pour les politiques publiques de développement du sport, tant au niveau national que territorial. Il s'agit d'un recensement au lieu d'habitation de la personne et non au lieu de pratique.Les données issues du recensement sont dans un second temps géocodées par l'Insee pour métropole+DROM (hors Mayotte), afin de pouvoir communiquer ces fichiers au niveau communal. Les données ne sont pas disponibles pour l'ensemble des fédérations. Un certain nombre d'entre elles ne disposaient pas de données totalement géolocalisables à la commune permettant une exploitation exhaustive. Les données géocodées ont donc été traitées afin de pouvoir communiquer une estimation du nombre de licences par commune et par fédération. Les données de millésime N correspondent à la saison N-1/N ou à l'année civile N selon le fonctionnement des fédérations (ex : lic-data-2021 est une répartition des licences de la saison 2020/2021 ou de l'année 2021).*
+
+
+Contrairement à la **base des équipements sportifs** que nous avons commencé à analyser dans le chapitre de cours consacré à leaflet, cette base de données ne fournit pas la position individuelle des personnes qui pratiquent un sport mais seulement leur effectif par commune. Elle a toutefois été complétée par une extraction de la **base du recensement** qui a été vue dans les cours précédents afin de connaître le nombre de personne par âge et par sexe dans les communes. On pourra ainsi disposer d'un dénominateur permettant de calculer le pourcentage de personnes d'un âge ou d'un sexe donné qui disposent d'une licence dans tel ou tel sport.
+
+Il faut toutefois préciser d'emblée quelques limites de cette base :
+
+1. La base fournit le *nombre de licenciés d'une fédération sportive* et non pas le nombre de personnes qui pratiquent un sport. Elle ne correspond donc pas aux **personnes qui pratiquent un sport** pour deux raisons : (1) certains licenciés sont des arbitres ou des entraineurs qui ne pratiquent pas directement le sport et (2) beaucoup de personnes pratiquent un sport sans avoir de licence.  Il y a donc **un biais** à estimer. 
+
+2. La **population de référence** fournie par le recensement est également une estimation puisqu'en France le recensement s'opère par sondage sur période de 5 ans. Le recensement de 2017 est en réalité une moyenne de la population 2015-2019.
+
+3. La pratique de certains sport dépend de la **disponibilité d'équipements spécifiques** qui ne sont pas partout disponible. Une faible pratique du football à Paris n'aura ainsi rien d'étonnant puisque cette commune dispose de peu de terrains. Nous reviendrons sur cette question dans le prochain chapitre. 
+
+## Données
+
+On choisit de travailler sur la base de données 2018 et on rappatrie deux fichiers correspondant respectivement aux clubs et aux licenciés. On sélectionne l'ensemble de la région Ile de France. On procédera ultérieurement à l'extraction des communes du Grand Paris mais on souhaite connaître les valeurs globale de l'ensemble de la région. 
+
+
+### Fichier des licenciés
+
+
+
+```{r, eval=FALSE}
+lic<-read.csv2("https://www.data.gouv.fr/fr/datasets/r/f3970a7b-df0e-4c3e-9f36-c93da58f4a3e", 
+               fileEncoding = "Latin1") %>%
+     filter(region=="Île-de-France")
+saveRDS(lic,"data/sport/lic_2018_idf.RDS")
+```
+
+
+```{r}
+lic <- readRDS("data/sport/lic_2018_idf.RDS")
+glimpse(lic)
+```
+
+
+
+### Fichier des clubs
+
+Le nom des variables correspondant aux communes et régions est différent du fichier précédent. Il n'y a pas d'erreur cette fois-ci sur le code
+
+
+```{r, eval=FALSE}
+clu<-read.csv2("https://www.data.gouv.fr/fr/datasets/r/9348012d-9baa-451b-89e1-55817837c521", 
+               fileEncoding = "Latin1") %>%
+     filter(Region=="Île-de-France")
+saveRDS(clu,"data/sport/clu_2018_idf.RDS")
+```
+
+```{r}
+clu <- readRDS("data/sport/clu_2018_idf.RDS")
+glimpse(clu)
+```
+
+
+### Fonds de carte
+
+On ajoute un fonds de carte des communes d'Ile de France (au cas où l'on n'en dispose pas déjà). On choisit ici le fonds de carte Geofla 2015 de l'IGN qui présente l'avantage de fournir Paris découpé en arrondissements.
+
+
+
+```{r, eval=FALSE}
+map<-geojson_sf("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/geoflar-communes-2015/exports/geojson?lang=fr&refine=nom_reg%3A%22ILE-DE-FRANCE%22&timezone=Europe%2FBerlin")
+saveRDS(map,"data/sport/map_com_idf.RDS")
+
+```
+
+
+
+
+```{r}
+map<-readRDS("data/sport/map_com_idf.RDS")
+par(mar=c(0,0,0,0))
+plot(map['code_dept'], main="Ile de France")
+```
+
+
+### Jointure
+
+On procède à une vérification rapide des codes communaux en effectuant une jointure
+
+```{r}
+don<-lic %>% group_by(insee_com=code_commune) %>% summarise(pop=sum(pop_2017))
+mapdon<-left_join(map,don)
+mapdon$missing<-is.na(mapdon$pop)
+plot(mapdon['missing'])
+```
+
+Il existe quatre communes manquantes ce qui est lié à des fusions intervenues entre 2015 et 2018. Dans la mesure où elles se situent en dehors de la zone d'étude, on ne va pas s'en inquiéter et garder le fonds de carte actuel.
+
+
+
+## Wrangling
+
+Nous allons complètement réorganiser le tableau des licenciés afin de faciliter son utilisation ultérieure
+
+
+
+### licenciés - femme
+
+```{r, eval=FALSE}
+lic_fem <- lic %>% select(code_com=code_commune,
+                       nom_com = libelle,
+                       code_fed = fed_2018,
+                       nom_fed ,
+                       age0004 = l_0_4_f_2018,
+                       age0509 = l_5_9_f_2018,
+                       age1014 = l_10_14_f_2018,
+                       age1519 = l_15_19_f_2018,
+                       age2029 = l_20_29_f_2018,                       
+                       age3044 = l_30_44_f_2018,
+                       age4559 = l_45_59_f_2018,    
+                       age6074 = l_60_74_f_2018,
+                       age7599 = l_75_f_2018)  %>%
+  pivot_longer(cols = 5:13) %>%
+  rename(nblic=value, age=name) %>%
+  mutate(sexe = "Femme", age=substr(age,4,7))
+                       
+```
+
+
+### licenciés - hommes
+
+```{r}
+lic_hom <- lic %>% select(code_com=code_commune,
+                       nom_com = libelle,
+                       code_fed = fed_2018,
+                       nom_fed ,
+                       age0004 = l_0_4_h_2018,
+                       age0509 = l_5_9_h_2018,
+                       age1014 = l_10_14_h_2018,
+                       age1519 = l_15_19_h_2018,
+                       age2029 = l_20_29_h_2018,                       
+                       age3044 = l_30_44_h_2018,
+                       age4559 = l_45_59_h_2018,    
+                       age6074 = l_60_74_h_2018,
+                       age7599 = l_75_h_2018)  %>%
+  pivot_longer(cols = 5:13) %>%
+  rename(nblic=value, age=name) %>%
+  mutate(sexe = "Homme",  age=substr(age,4,7))
+```
+
+
+
+
+
+
+
+
+### population - femme
+
+```{r, eval=FALSE}
+pop_fem <- lic %>% select(code_com=code_commune,
+                       nom_com = libelle,
+                       code_fed = fed_2018,
+                       nom_fed ,
+                       age0004 = popf_0_4_2017,
+                       age0509 = popf_5_9_2017,
+                       age1014 = popf_10_14_2017,
+                       age1519 = popf_15_19_2017,
+                       age2029 = popf_20_29_2017,                       
+                       age3044 = popf_30_44_2017,
+                       age4559 = popf_45_59_2017,    
+                       age6074 = popf_60_74_2017,
+                       age7599 = popf_75_2017)  %>%
+  pivot_longer(cols = 5:13) %>%
+  rename(pop=value, age=name) %>%
+  mutate(sexe = "Femme", age=substr(age,4,7))
+                       
+```
+
+
+### population - hommes
+
+```{r, eval=FALSE}
+pop_hom <- lic %>% select(code_com=code_commune,
+                       nom_com = libelle,
+                       code_fed = fed_2018,
+                       nom_fed ,
+                       age0004 = poph_0_4_2017,
+                       age0509 = poph_5_9_2017,
+                       age1014 = poph_10_14_2017,
+                       age1519 = poph_15_19_2017,
+                       age2029 = poph_20_29_2017,                       
+                       age3044 = poph_30_44_2017,
+                       age4559 = poph_45_59_2017,    
+                       age6074 = poph_60_74_2017,
+                       age7599 = poph_75_2017)  %>%
+  pivot_longer(cols = 5:13) %>%
+  rename(pop=value, age=name) %>%
+  mutate(sexe = "Homme",  age=substr(age,4,7))
+                       
+```
+
+
+### assemblage
+
+
+```{r, eval=FALSE}
+lictot<-rbind(lic_fem, lic_hom)
+poptot<-rbind(pop_fem, pop_hom) %>% mutate(agemoy=(as.numeric(substr(age,1,2))+as.numeric(substr(age,3,4)))/2)
+licpop<-left_join(lictot,poptot) %>% select(1:4,7,5,9,6,8)
+saveRDS(licpop,"data/sport/licpop_idf_2018.RDS")
+```
+
+
+```{r}
+licpop <-readRDS("data/sport/licpop_idf_2018.RDS")
+glimpse(licpop)
+kable(head(licpop,18))
+
+```
+
+- N.B. On remarque que la population apparaît plusieurs fois et qu'il ne faut donc pas effectuer de sommes sur tout le tableau.
+- N.B.2 on pourrait gagner de la place en retirant les lignes ou le nombre de licencié est égal à zéro et en stockant à part les populations par âge.
+
+
+## Exploration
+
+Pemières analyses du tableau ... afin de choisir le sport que l'on souhaite étudier par la suite. A vous de retrouver les programmes
+
+
+### Top20
+
+
+```{r, echo=FALSE}
+tab<- licpop %>% group_by(nom_fed) %>%
+                summarise(nb=sum(nblic)) %>% 
+                 arrange(-nb) 
+kable(head(tab,20))
+```
+
+
+### Masculin/Feminin
+
+
+```{r, echo=FALSE}
+tab<- licpop %>% group_by(nom_fed, sexe) %>%
+                 summarise(nb=sum(nblic)) %>%
+                 pivot_wider(values_from = "nb", names_from = "sexe") %>%
+                 mutate(Total= Homme+Femme, 
+                        Indice = (Homme-Femme)/Total) %>%
+                 filter(Total > 100)
+tab<-arrange(tab,Indice)
+kable(head(tab,10), caption="Sports les plus Féminins", digits=c(0,0,0,0,2))
+tab<-arrange(tab,-Indice)
+kable(head(tab,10), caption="Sports les plus Masculins", digits=c(0,0,0,0,2))
+tab2<-tab %>% filter(Indice>-0.12, Indice<0.12)
+kable(head(tab2,10), caption="Sports les plus Neutres", digits=c(0,0,0,0,2))
+
+```
+
+
+### Jeunes/Vieux
+
+
+```{r, echo=FALSE}
+tab<- licpop %>% group_by(nom_fed) %>%
+                 mutate(ann=agemoy*nblic)%>%
+                 summarise(nb=sum(nblic), agemoy=sum(ann/nb))
+
+tab<-tab %>% arrange(agemoy)
+kable(head(tab,10), caption="Sports de jeunes", digits=c(0,0,1))
+tab<-tab %>% arrange(-agemoy)
+kable(head(tab,10), caption="Sports de vieux", digits=c(0,0,1))
+
+
+```
+
