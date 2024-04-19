@@ -254,12 +254,17 @@ pop_hom <- lic %>% select(code_com=code_commune,
 lictot<-rbind(lic_fem, lic_hom)
 poptot<-rbind(pop_fem, pop_hom) %>% mutate(agemoy=(as.numeric(substr(age,1,2))+as.numeric(substr(age,3,4)))/2)
 licpop<-left_join(lictot,poptot) %>% select(1:4,7,5,9,6,8)
+
+# Corrige un problème d'espace dans les milliers !
+licpop$pop<-as.numeric(gsub(" ","",licpop$pop))
+
 saveRDS(licpop,"data/sport/licpop_idf_2018.RDS")
 ```
 
 
 ```{r}
 licpop <-readRDS("data/sport/licpop_idf_2018.RDS")
+
 glimpse(licpop)
 kable(head(licpop,18))
 
