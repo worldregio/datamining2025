@@ -4587,6 +4587,12 @@ vertical-align: -.125em;
  <span class="menu-text">Projet-Données</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./32-PROJET-shiny.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Projet-Shiny</span></a>
+  </div>
+</li>
       </ul>
   </li>
     </ul>
@@ -4950,11 +4956,16 @@ $ total_clubs_2018         &lt;int&gt; 0, 1, 4, 1, 1, 0, 3, 1, 1, 0, 1, 1, 1, 1,
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>lictot<span class="ot">&lt;-</span><span class="fu">rbind</span>(lic_fem, lic_hom)</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>poptot<span class="ot">&lt;-</span><span class="fu">rbind</span>(pop_fem, pop_hom) <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">agemoy=</span>(<span class="fu">as.numeric</span>(<span class="fu">substr</span>(age,<span class="dv">1</span>,<span class="dv">2</span>))<span class="sc">+</span><span class="fu">as.numeric</span>(<span class="fu">substr</span>(age,<span class="dv">3</span>,<span class="dv">4</span>)))<span class="sc">/</span><span class="dv">2</span>)</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>licpop<span class="ot">&lt;-</span><span class="fu">left_join</span>(lictot,poptot) <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>,<span class="dv">7</span>,<span class="dv">5</span>,<span class="dv">9</span>,<span class="dv">6</span>,<span class="dv">8</span>)</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(licpop,<span class="st">&quot;data/sport/licpop_idf_2018.RDS&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Corrige un problème d&#39;espace dans les milliers !</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>licpop<span class="sc">$</span>pop<span class="ot">&lt;-</span><span class="fu">as.numeric</span>(<span class="fu">gsub</span>(<span class="st">&quot; &quot;</span>,<span class="st">&quot;&quot;</span>,licpop<span class="sc">$</span>pop))</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(licpop,<span class="st">&quot;data/sport/licpop_idf_2018.RDS&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>licpop <span class="ot">&lt;-</span><span class="fu">readRDS</span>(<span class="st">&quot;data/sport/licpop_idf_2018.RDS&quot;</span>)</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">glimpse</span>(licpop)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="fu">glimpse</span>(licpop)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Rows: 1,023,012
 Columns: 9
@@ -4966,7 +4977,7 @@ $ sexe     &lt;chr&gt; &quot;Femme&quot;, &quot;Femme&quot;, &quot;Femme&quot;, 
 $ age      &lt;chr&gt; &quot;0004&quot;, &quot;0509&quot;, &quot;1014&quot;, &quot;1519&quot;, &quot;2029&quot;, &quot;3044&quot;, &quot;4559&quot;, &quot;6074…
 $ agemoy   &lt;dbl&gt; 2.0, 7.0, 12.0, 17.0, 24.5, 37.0, 52.0, 67.0, 87.0, 2.0, 7.0,…
 $ nblic    &lt;int&gt; 0, 0, 2, 0, 2, 3, 1, 1, 0, 0, 0, 2, 8, 6, 6, 13, 3, 0, 0, 0, …
-$ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;356&quot;, &quot;1 444&quot;, &quot;1 659&quot;, &quot;1 545&quot;, &quot;1 227…</code></pre>
+$ pop      &lt;dbl&gt; 283, 306, 327, 356, 1444, 1659, 1545, 1227, 752, 283, 306, 32…</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">head</span>(licpop,<span class="dv">18</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
@@ -4975,12 +4986,12 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <col style="width: 10%">
 <col style="width: 28%">
 <col style="width: 10%">
-<col style="width: 17%">
+<col style="width: 18%">
 <col style="width: 6%">
 <col style="width: 5%">
 <col style="width: 7%">
 <col style="width: 6%">
-<col style="width: 6%">
+<col style="width: 5%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -4992,7 +5003,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <th style="text-align: left;">age</th>
 <th style="text-align: right;">agemoy</th>
 <th style="text-align: right;">nblic</th>
-<th style="text-align: left;">pop</th>
+<th style="text-align: right;">pop</th>
 </tr>
 </thead>
 <tbody>
@@ -5005,7 +5016,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">0004</td>
 <td style="text-align: right;">2.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">283</td>
+<td style="text-align: right;">283</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5016,7 +5027,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">0509</td>
 <td style="text-align: right;">7.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">306</td>
+<td style="text-align: right;">306</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5027,7 +5038,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">1014</td>
 <td style="text-align: right;">12.0</td>
 <td style="text-align: right;">2</td>
-<td style="text-align: left;">327</td>
+<td style="text-align: right;">327</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5038,7 +5049,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">1519</td>
 <td style="text-align: right;">17.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">356</td>
+<td style="text-align: right;">356</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5049,7 +5060,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">2029</td>
 <td style="text-align: right;">24.5</td>
 <td style="text-align: right;">2</td>
-<td style="text-align: left;">1 444</td>
+<td style="text-align: right;">1444</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5060,7 +5071,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">3044</td>
 <td style="text-align: right;">37.0</td>
 <td style="text-align: right;">3</td>
-<td style="text-align: left;">1 659</td>
+<td style="text-align: right;">1659</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5071,7 +5082,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">4559</td>
 <td style="text-align: right;">52.0</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: left;">1 545</td>
+<td style="text-align: right;">1545</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5082,7 +5093,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">6074</td>
 <td style="text-align: right;">67.0</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: left;">1 227</td>
+<td style="text-align: right;">1227</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5093,7 +5104,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">7599</td>
 <td style="text-align: right;">87.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">752</td>
+<td style="text-align: right;">752</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5104,7 +5115,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">0004</td>
 <td style="text-align: right;">2.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">283</td>
+<td style="text-align: right;">283</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5115,7 +5126,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">0509</td>
 <td style="text-align: right;">7.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">306</td>
+<td style="text-align: right;">306</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5126,7 +5137,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">1014</td>
 <td style="text-align: right;">12.0</td>
 <td style="text-align: right;">2</td>
-<td style="text-align: left;">327</td>
+<td style="text-align: right;">327</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5137,7 +5148,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">1519</td>
 <td style="text-align: right;">17.0</td>
 <td style="text-align: right;">8</td>
-<td style="text-align: left;">356</td>
+<td style="text-align: right;">356</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5148,7 +5159,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">2029</td>
 <td style="text-align: right;">24.5</td>
 <td style="text-align: right;">6</td>
-<td style="text-align: left;">1 444</td>
+<td style="text-align: right;">1444</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5159,7 +5170,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">3044</td>
 <td style="text-align: right;">37.0</td>
 <td style="text-align: right;">6</td>
-<td style="text-align: left;">1 659</td>
+<td style="text-align: right;">1659</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5170,7 +5181,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">4559</td>
 <td style="text-align: right;">52.0</td>
 <td style="text-align: right;">13</td>
-<td style="text-align: left;">1 545</td>
+<td style="text-align: right;">1545</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">75101</td>
@@ -5181,7 +5192,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">6074</td>
 <td style="text-align: right;">67.0</td>
 <td style="text-align: right;">3</td>
-<td style="text-align: left;">1 227</td>
+<td style="text-align: right;">1227</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">75101</td>
@@ -5192,7 +5203,7 @@ $ pop      &lt;chr&gt; &quot;283&quot;, &quot;306&quot;, &quot;327&quot;, &quot;
 <td style="text-align: left;">7599</td>
 <td style="text-align: right;">87.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: left;">752</td>
+<td style="text-align: right;">752</td>
 </tr>
 </tbody>
 </table>

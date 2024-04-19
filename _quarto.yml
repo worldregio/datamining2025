@@ -13,6 +13,7 @@ render:
       - 22-CARTO-mapsf.qmd
       - 23-CARTO-leaflet.qmd
       - 31-PROJET-data.qmd
+      - 32-PROJET-shiny.qmd
       
 website:
   sidebar:
@@ -32,6 +33,7 @@ website:
       - section: "PROJET"
         contents:
           - 31-PROJET-data.qmd
+          - 32-PROJET-shiny.qmd
 
 
  
