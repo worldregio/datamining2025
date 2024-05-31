@@ -1,0 +1,527 @@
+---
+title: "Accessibilité et Potentiel"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  echo=FALSE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="80")
+opts_chunk$set(echo=TRUE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=FALSE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               options(scipen=999))
+opts_knit$set(width=75)
+
+
+
+```
+
+
+## INTRODUCTION
+
+### Objectifs
+
+Cette séance va permettre :
+
+-   **de consolider les apprentissages** en matière de cartographie et
+    d'analyse spatiale.
+
+-   d'aborder de nouvelles données **sous l'angle des problèmes de
+    localisation optimale**, dans une perspective soit de **service
+    public** (e.g. localisation optimale des écoles ou des crèches),
+    soit de **concurrence spatiale** (localisation d'un commerce
+    maximisant la clientète).
+
+-   de créer des **fonctions-type** de cartographie et d'analye spatiale
+    pouvant être mobilisées ensuite dans vos **applications shiny**
+    interactives.
+
+### Chargement des packages
+
+L'installation est a priori la même que dans les sessions précédentes.cOn reprend juste pour mémoire la liste, à l'intention de ceux qui n'auraient pas suivi la séance précédente :
+
+
+```{r}
+library(knitr)
+library(dplyr)
+
+library(sf)
+library(mapsf)
+library(RColorBrewer)
+library(leaflet)
+
+library(ggplot2)
+library(plotly)
+
+
+```
+
+
+## DONNEES
+
+On dispose de cinq jeux de données sur Paris et les départements de
+Petite Couronne qui ont été téléchargés sur le site de l'INSEE ou du
+ministère des sports et légèrement retouchés pour en faciliter
+l'utilisation.
+
+### Contour des communes d'Ile de France
+
+Ce fichier fournit le contour des communes de Paris et petite Couronne.
+On commence par vérifier le système de projection :
+
+```{r}
+mapcom<-readRDS("ParisPC/mapcom_parisPC.RDS")
+st_crs(mapcom)
+```
+
+Le système de projection EPSG = 4326 est celui qui convient pour
+leaflet. On peut visualiser l'ensemble des commune facilement :
+
+```{r}
+
+leaflet() %>%  addTiles() %>%
+              addPolygons(data=mapcom, # fonds de carte 4326
+                          weight = 1,  # épaisseur des traits
+                          col = "red", # couleur
+                          label = ~nom_com, # réaction souris
+                          opacity = 0.3)  # opacité du remplissage
+
+```
+
+### Revenus, pauvreté et niveau de vie en 2015 - Données carroyées
+
+Ces données issues du "Dispositif Fichier localisé social et fiscal"
+(Filosofi) ont été créée pour des besoins de services public :
+
+> L'Insee fournit des informations socio-économiques sur près de 30
+> millions de ménages. Il diffuse ces informations à différentes
+> échelles dont la plus petite est celle d'un carreau de 200 mètres de
+> côté.
+
+> Ces statistiques locales permettent d'observer finement la situation
+> socio-économique de la population de zones géographiques très ciblées.
+> Elles représentent une source d'information précieuse pour aller
+> au-devant des besoins des habitants et des acteurs économiques et
+> accompagner la mise en œuvre de politiques publiques.
+
+Source :
+[INSEE](https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305)
+
+Examinons à titre d'exemple les carreaux correspondant majoritairement
+au territoire de la commune de Sucy-en-Brie (code = 94071)
+
+```{r}
+gridpop<-readRDS("ParisPC/gridpop_parisPC.RDS")
+
+
+
+leaflet() %>%  addTiles() %>%
+                addPolygons(data=mapcom, 
+                          weight = 1,
+                          col = "blue",
+                          fillOpacity = 0.1) %>%
+  
+              addPolygons(data=gridpop, 
+                          weight = 1,
+                          col = "red", 
+                          opacity = 0.3) 
+
+
+```
+
+Comme on peut le voir, les carreaux ne sont présent que dans les zones
+peuplées et ne recouvrent pas les zones inhabitées.
+
+Le fichier propose un grand nombre de variables dont on trouvera la
+description dans le document explicatif [dictionnaire des variables
+accessible sur le site de
+l'INSEE](https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305#dictionnaire)
+
+```{r}
+kable(head(st_drop_geometry(gridpop))[,1:10])
+```
+
+Pour des raisons de confidentialités, les données ne peuvent toutefois
+être divulguées lorsqu'il y a moins de 10 à 20 ménages dans un carreau
+de la grille. Dans ce cas, les données sont "modifiées" en effectuant
+une sorte de moyenne avec les carreaux les plus proches.
+
+### Base des équipements sportifs
+
+Cette base de données du ministère de l'équipement et des sports est
+accessible par [ce
+lien](https://equipements.sports.gouv.fr/explore/dataset/data-es/table/).
+Elle fournit la position précise des équipements sportifs en indiquant
+leur type, leur ancienneté, leur accessibilité aux handicapés, etc. Nous
+avons réalisé une extraction pour les départements de Paris et petite
+couronne en ne retenant que quelques indicateurs.
+
+```{r}
+equ<-readRDS("ParisPC/equip_ParisPC.RDS") 
+kable(head(equ))
+```
+
+On peut voir que le fichier comporte 109 équipements, certains étant
+rares et d'autres fréquents.
+
+```{r}
+tab<-equ %>% st_drop_geometry() %>%
+                count(typ_code,typ_nom) %>%
+                arrange(-n)
+kable(head(tab,25))
+```
+
+Examinons à titre d'exemple la localisation des terrains de football
+(code 2802) autour de la commeune de Sucy-en-Brie (code 94071)
+
+```{r}
+
+myequ<-equ %>% filter(typ_code %in% c("2803"))
+leaflet() %>% addProviderTiles('Esri.WorldTopoMap') %>%
+  
+                addPolygons(data=mapcom, 
+                          weight = 1,
+                          col = "blue",
+                          fillOpacity = 0.1) %>%
+  
+              addCircleMarkers(data=myequ,
+                               radius = 3,
+                               stroke = T,
+                               weight = 2,
+                               color="red",
+                               fillColor =  "yellow")
+```
+
+
+**Exercice** : Faites une carte de la distribution de votre équipement.
+
+
+## ACCESSIBILITE
+
+Nous allons calculer l'accessibilité de la population de Sucy-en-Brie aux terrains de football localisés à l'intérieur de ses frontières.
+
+### Préparation des données
+
+On extrait les contours de la commune choisie et sa population sur
+grille puis on projette les deux cartes dans la projection Lambert
+(crs=2154) afin de pouvoir mesurer les distances à vol d'oiseau en km.
+On calcule le centre des grilles pour positionner les populations.
+
+```{r}
+
+mymap <- mapcom %>% filter(insee_com=="94071") %>% 
+                        st_transform(2154)
+
+mypop <- gridpop %>% filter(insee_com== "94071") %>%
+                     select(w = "Ind") %>%
+                     st_transform(2154)
+
+```
+
+On extrait ensuite les équipements qui nous intéressent en ne retenant
+dans un premier temps que ceux qui sont présents dans la commune :
+
+```{r}
+myequ <- equ %>% filter(typ_code==2802,
+                        insee_com == "94071") %>%
+                  mutate(w=1) %>%
+                  select(w) %>%
+                  st_transform(2154)
+```
+
+On vérifie à l'aide d'une carte que tout se superpose bien :
+
+```{r mapacc1}
+# carte de base de type polygone
+mf_map(mymap, type="base", 
+       col="lightyellow")
+
+# Carte de stock
+mf_map(mypop, type="prop",
+       var="w",
+       inches=0.05,           # réglage de la taille dez symboles
+       symbol = "square",     # forme des symboles
+       col="red",              
+       leg_pos = "topright",       # position de la légende
+       leg_title = "Population")    # Titre de la légende
+
+
+# Carte de base de type point
+mf_map(myequ, type="base",
+       pch=20,
+       col="black",
+       leg_pos = "topleft",
+       leg_title = "Equipement",
+       add=T)                    # Superposition sur les cartes précédentes
+
+# Titre, cadre, échelle, source ...
+mf_layout(title = "Population et ressources",
+          scale = T, 
+          frame=T,
+          arrow=F,
+          credits = "Source : INSEE et Min. Sports, 2024"
+          )
+```
+
+### Calcul de la distance Population x Ressource
+
+Le calcul va être effectué par la fonction st_distance() du package sf.
+Elle ne fonctionne que si le fonds de carte a été projetée, ce que nous
+avons fait avant. On la transforme en numérique puis en matrice et on
+calcule pour chaque point de population sa distance minimum à
+l'équipement choisi en mètres
+
+```{r}
+D <-st_distance(mypop, myequ, by_element = F) 
+class(D)<-"matrix"
+D[1:3,1:5]
+
+```
+
+### Calcul de la distance minimum
+
+On calcule pour chaque point de la grille population sa distance
+minimale à l'équipement et on effectue la moyenne pondérée :
+
+```{r}
+mypop$Dmin <- apply(D,1,min)
+Dmintot <- sum(mypop$Dmin*mypop$w)/sum(mypop$w)
+Dmintot
+```
+
+On constate que les habitants de la commune sont en moyenne à 837.6 mètres
+de l'équipement le plus proche.
+
+### Courbe d'accessibilité minimale de la population
+
+Une solution plus générale consiste à calculer une courbe de fréquence
+cumulée indiquant combien d'habitants sont situés à moins d'une certaine
+distance de l'équipement.
+
+```{r}
+tabfreq<-data.frame(dis= mypop$Dmin, pop = mypop$w) %>% 
+              arrange(dis) %>%
+              mutate(cumpop=cumsum(pop)) %>%
+              mutate(cumfreq=100*cumpop/sum(pop))
+head(tabfreq)
+  
+```
+
+On voit ainsi par exemple que 769 habitants sont situés à moins de 178
+mètres de l'équipement ce qui représente 2.87% de la population de la
+commune. On trace le résultat avec ggplot2 :
+
+```{r}
+p<-ggplot(tabfreq) + aes(x=dis, y=cumfreq) +
+                     geom_line() +
+                     scale_x_continuous(name = "Distance minimale à l'équipement") +
+                     scale_y_continuous(name = "% de la population") +
+                     ggtitle("Courbe d'accessibilité minimale")
+ggplotly(p)
+```
+
+On peut alors voir en promenant le curseur sur la courbe quel % de la
+poplation se trouve à moins d'une certaine distance de l'équipement le
+plus proche et répondre aux questions telles que :
+
+-   Q1 : quel % de la population est située à moins de 500 m ? environ 26%
+-   Q2 : quel % de la population est située à plus de 1500 m ? environ 4%
+-   Q3 : A quelle distance se trouvent les 10% les plus favorisés ? moins de 258 m
+-   Q4 : A quelle distance se trouvent les 10% les moins favorisés ?
+plus de 1371m
+-   Q5 : quelle est la distance médiane à l'équipement le plus proche ? 900 m 
+
+
+### Cartographie
+
+On peut faire une carte représentant la localisation et l'effectif des
+populations favorisés et défavorisés. On va utiliser pour cela des
+carrés dont la surface sera proportionnlle à la population et la couleur
+à l'accessibilité minimale à l'équipement le plus proche. On utilisera
+comme seuil cartographique de référence la distance moyenne et ses
+valeurs divisées par deux ou multipliées par deux.
+
+```{r mapacc2}
+mf_map(mymap, type="base", 
+       col="lightyellow")
+
+
+mybreaks<-c(min(mypop$Dmin), Dmintot/2, Dmintot, Dmintot*2, max(mypop$Dmin))
+mypal<-rev(brewer.pal(4,"RdYlBu"))
+
+mf_map(mypop, type="prop_choro",
+       var=c("w", "Dmin"),
+       inches=0.05,
+       pal=mypal,
+       breaks=mybreaks,
+       symbol = "square",
+       leg_pos = c("topleft","topright"),
+       leg_title = c("Population", "Distance minimale (en m)"),
+       leg_val_rnd = c(0,0)
+        )
+
+mf_map(myequ, type="base",
+       pch=20,
+       col="black",
+       leg_pos = "topleft",
+       leg_title = "Equipement",
+       add=T)
+mf_layout(title = "Accessibilité de la population à la ressource",
+          scale = T, 
+          frame=T,
+          arrow=F,
+          credits = "Source : INSEE et Min. Sports, 2024"
+          )
+```
+
+### Exercice : refaire les calculs précédents pour tout le Grand Paris
+
+
+
+```{r mapacc3}
+## Chargement des fichiers
+mymap <- mapcom %>%  st_transform(2154)
+
+mypop <- gridpop %>%  select(w = "Ind") %>%
+                     st_transform(2154)
+
+myequ <- equ %>% filter(typ_code==2802) %>%
+                  mutate(w=1) %>%
+                  select(w) %>%
+                  st_transform(2154)
+
+## Calcul de la matrice de distance
+D <-st_distance(mypop, myequ, by_element = F) 
+class(D)<-"matrix"
+D[1:3,1:5]
+
+## Calcul de la distance minimale moyenne
+mypop$Dmin <- apply(D,1,min)
+Dmintot <- sum(mypop$Dmin*mypop$w)/sum(mypop$w)
+Dmintot
+
+## Tableau de distance cumulée
+tabfreq<-data.frame(dis= mypop$Dmin, pop = mypop$w) %>% 
+              arrange(dis) %>%
+              mutate(cumpop=cumsum(pop)) %>%
+              mutate(cumfreq=100*cumpop/sum(pop))
+head(tabfreq)
+
+## Graphique d'accessibilité
+p<-ggplot(tabfreq) + aes(x=dis, y=cumfreq) +
+                     geom_line() +
+                     scale_x_continuous(name = "Distance minimale à l'équipement") +
+                     scale_y_continuous(name = "% de la population") +
+                     ggtitle("Courbe d'accessibilité minimale")
+ggplotly(p)
+
+## Carte d'accessibilité
+
+mf_map(mymap, type="base", 
+       col="lightyellow")
+
+
+mybreaks<-c(min(mypop$Dmin), Dmintot/2, Dmintot, Dmintot*2, max(mypop$Dmin))
+mypal<-rev(brewer.pal(4,"RdYlBu"))
+
+mf_map(mypop, type="prop_choro",
+       var=c("w", "Dmin"),
+       inches=0.05,
+       pal=mypal,
+       border = NA,
+       breaks=mybreaks,
+       symbol = "square",
+       leg_pos = c("topleft","topright"),
+       leg_title = c("Population", "Distance minimale (en m)"),
+       leg_val_rnd = c(0,0)
+        )
+
+mf_map(myequ, type="base",
+       pch=20,
+       cex=0.2,
+       col="black",
+       leg_pos = "topleft",
+       leg_title = "Equipement",
+       add=T)
+mf_layout(title = "Accessibilité de la population aux terrain de football le plus proche ",
+          scale = T, 
+          frame=T,
+          arrow=F,
+          credits = "Source : INSEE et Min. Sports, 2024"
+          )
+
+
+
+```
+
+
+
+
+
+
+## POTENTIEL
+
+On repart de la matrice des distances mais on va calculer cette fois-ci le nombre d'équipement situés à moins d'une certaine distance du lieu d'habitat. On va utiliser cette fois-ci les centres de commune comme point de référence :
+
+### Préparation des données
+```{r}
+mycom <- mapcom %>% st_transform(2154)
+myequ <- equ %>% filter(typ_code==2802) %>%
+                  st_transform(2154)
+```
+
+
+###  Distance
+```{r}
+matdis <-st_distance(mycom,myequ)
+matdis<-as.matrix(matdis)
+class(matdis)<-"matrix"
+row.names(matdis)<-mycom$insee_com
+matdis[1:5,1:7]
+```
+
+### Calcul du nombre d'équipement à moins de 1000 m
+
+On transforme la matrice en 0 ou 1 selon la distance
+
+```{r}
+mat2000 <- matdis<1000
+mycom$pot2000<-apply(mat2000,1,sum)
+```
+
+### Cartographie du résultat
+
+
+```{r mapacc4}
+mf_map(mycom, type = "choro",
+       var="pot2000",
+       breaks=c(0,5,10,15,20,25,30,max(mycom$pot2000)),
+       leg_pos = "topright",
+       leg_title = "nb. equipt < 1000 m",
+       leg_val_rnd = 0)
+
+mf_map(myequ, type="base",
+       pch=20,
+       cex=0.4,
+       col="red",
+
+       add=TRUE)
+
+mf_layout(title= "Potentiel d'équipement",
+          frame=T,
+          credits = "Source : INSEE & Min. des Sports")
+```
+
+## PROLONGEMENTS
+
+Nous avons été très rapide sur la notion de potentiel. Les personnes intéressées pour en savoir plus pourront lire en premier la vignette du  [Package R potential](https://riatelab.github.io/potential/articles/potential.html) qui résume de façon rapide les principes du calcul de potentiel et décrivent les fonctions à mettre en oeuvre sous R pour réaliser une carte de potentiel.
+
+Pour une compréhension plus approfondie du concept, on pourra se reporter aux articles de [Grasland, 1990](https://www.persee.fr/doc/spgeo_0046-2497_1990_num_19_3_2992) ou de [Grasland & al., 1993](https://www.persee.fr/doc/spgeo_0046-2497_1993_num_22_4_3229) qui ont profondément renouveler les méthodes de calcul du potentiel par rapport à la formulation initiale de [J.Q. Stewart, 1947](https://www.jstor.org/stable/211132) qui était inspirée des lois de la gravitation universelle.

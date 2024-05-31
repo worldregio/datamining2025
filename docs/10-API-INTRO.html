@@ -4595,6 +4595,29 @@ vertical-align: -.125em;
 </li>
       </ul>
   </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text">ANALYSE SPATIALE</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./41-ANSPA-access.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Accessibilité et Potentiel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./42-ANSPA-regress.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Régression spatiale</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
     </ul>
     </div>
 </nav>
@@ -4753,7 +4776,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>ovni</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Response [http://api.open-notify.org/astros.json]
-  Date: 2024-04-19 16:10
+  Date: 2024-05-31 13:59
   Status: 200
   Content-Type: application/json
   Size: 360 B</code></pre>
@@ -4774,7 +4797,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
  $ status_code: int 200
  $ headers    :List of 6
   ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  ..$ date                       : chr &quot;Fri, 19 Apr 2024 16:10:00 GMT&quot;
+  ..$ date                       : chr &quot;Fri, 31 May 2024 13:59:19 GMT&quot;
   ..$ content-type               : chr &quot;application/json&quot;
   ..$ content-length             : chr &quot;360&quot;
   ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4786,7 +4809,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
   .. ..$ version: chr &quot;HTTP/1.1&quot;
   .. ..$ headers:List of 6
   .. .. ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  .. .. ..$ date                       : chr &quot;Fri, 19 Apr 2024 16:10:00 GMT&quot;
+  .. .. ..$ date                       : chr &quot;Fri, 31 May 2024 13:59:19 GMT&quot;
   .. .. ..$ content-type               : chr &quot;application/json&quot;
   .. .. ..$ content-length             : chr &quot;360&quot;
   .. .. ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4801,8 +4824,8 @@ Attaching package: &#39;dplyr&#39;</code></pre>
   ..$ name      : logi(0) 
   ..$ value     : logi(0) 
  $ content    : raw [1:360] 7b 22 6d 65 ...
- $ date       : POSIXct[1:1], format: &quot;2024-04-19 16:10:00&quot;
- $ times      : Named num [1:6] 0 0.0192 0.1667 0.1668 0.3137 ...
+ $ date       : POSIXct[1:1], format: &quot;2024-05-31 13:59:19&quot;
+ $ times      : Named num [1:6] 0 0.0226 0.169 0.1691 0.3158 ...
   ..- attr(*, &quot;names&quot;)= chr [1:6] &quot;redirect&quot; &quot;namelookup&quot; &quot;connect&quot; &quot;pretransfer&quot; ...
  $ request    :List of 7
   ..$ method    : chr &quot;GET&quot;
@@ -4829,11 +4852,11 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>ovni<span class="sc">$</span>headers<span class="sc">$</span>date</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Fri, 19 Apr 2024 16:10:00 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Fri, 31 May 2024 13:59:19 GMT&quot;</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>ovni[[<span class="st">&quot;headers&quot;</span>]][[<span class="st">&quot;date&quot;</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Fri, 19 Apr 2024 16:10:00 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Fri, 31 May 2024 13:59:19 GMT&quot;</code></pre>
 </div>
 </div>
 <p>On peut également afficher les noms des branches en partant de la racine puis en suivant l’arbre à l’aide de l’instruction <code>names()</code></p>
@@ -5004,13 +5027,13 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_ISS2</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                name craft                          date
-1    Jasmin Moghbeli   ISS Fri, 19 Apr 2024 16:10:01 GMT
-2   Andreas Mogensen   ISS Fri, 19 Apr 2024 16:10:01 GMT
-3   Satoshi Furukawa   ISS Fri, 19 Apr 2024 16:10:01 GMT
-4 Konstantin Borisov   ISS Fri, 19 Apr 2024 16:10:01 GMT
-5     Oleg Kononenko   ISS Fri, 19 Apr 2024 16:10:01 GMT
-6       Nikolai Chub   ISS Fri, 19 Apr 2024 16:10:01 GMT
-7       Loral O&#39;Hara   ISS Fri, 19 Apr 2024 16:10:01 GMT</code></pre>
+1    Jasmin Moghbeli   ISS Fri, 31 May 2024 13:59:19 GMT
+2   Andreas Mogensen   ISS Fri, 31 May 2024 13:59:19 GMT
+3   Satoshi Furukawa   ISS Fri, 31 May 2024 13:59:19 GMT
+4 Konstantin Borisov   ISS Fri, 31 May 2024 13:59:19 GMT
+5     Oleg Kononenko   ISS Fri, 31 May 2024 13:59:19 GMT
+6       Nikolai Chub   ISS Fri, 31 May 2024 13:59:19 GMT
+7       Loral O&#39;Hara   ISS Fri, 31 May 2024 13:59:19 GMT</code></pre>
 </div>
 </div>
 <p>Et si on est à l’aise avec les listes, on peut aussi exporter les résultats sous la forme d’une liste plutôt que d’un tableau, ce qui évite de répéter plusieurs fois la date d’extraction des données</p>
@@ -5032,7 +5055,7 @@ Attaching package: &#39;dplyr&#39;</code></pre>
 <span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(x<span class="sc">$</span>Data, <span class="at">caption=</span><span class="fu">paste</span>(<span class="st">&quot;Passagers de l&#39;ISS :&quot;</span>, x<span class="sc">$</span>Update))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="table table-sm table-striped small">
-<caption>Passagers de l’ISS : Fri, 19 Apr 2024 16:10:01 GMT</caption>
+<caption>Passagers de l’ISS : Fri, 31 May 2024 13:59:19 GMT</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;">name</th>

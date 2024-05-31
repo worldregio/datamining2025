@@ -14,6 +14,8 @@ render:
       - 23-CARTO-leaflet.qmd
       - 31-PROJET-data.qmd
       - 32-PROJET-shiny.qmd
+      - 41-ANSPA-access.qmd
+      - 42-ANSPA-regress.qmd
       
 website:
   sidebar:
@@ -34,7 +36,10 @@ website:
         contents:
           - 31-PROJET-data.qmd
           - 32-PROJET-shiny.qmd
-
+      - section: "ANALYSE SPATIALE"
+        contents:          
+          - 41-ANSPA-access.qmd
+          - 42-ANSPA-regress.qmd
 
  
 format:
