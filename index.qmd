@@ -1,21 +1,21 @@
 ---
-title: "Data Mining 2024"
+title: "Data Mining 2025"
 ---
 
 ## À propos de ce document {.unnumbered}
 
-Ce document est la quatrième édition d'un cours de Data Mining dispensé aux étudiants de deuxième année de l' option Data Mining du master MECI conjointement avec Camille Signoretto. 
+Ce document est la cinquième édition d'un cours de Data Mining dispensé aux étudiants de deuxième année de l' option Data Mining du master MECI conjointement avec Camille Signoretto. 
 
 Il est basé sur :
 
-```{r}
+```{r, echo=F}
 R.Version()[["version.string"]]
 ```
 
 
 Ce document est régulièrement corrigé et mis à jour. La version de référence est disponible en ligne à l'adresse :
 
--   <https://claudegrasland.github.io/datamining2024/>.
+-   <https://worldregio.github.io/datamining2024/>.
 
 Pour toute suggestion ou correction, il est possible de me contacter [par mail](mailto:claude.grasland@parisgeo.cnrs.fr)
 

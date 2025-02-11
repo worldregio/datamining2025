@@ -1,0 +1,150 @@
+---
+title: "API - Importation geojson"
+author: "Claude Grasland"
+date: "2025-02-11"
+date-format: iso
+lang: fr
+format:
+  html:
+    embed-resources: true
+    smooth-scroll: true
+    fontsize: 0.9em
+    toc: true
+    toc-depth: 3
+    toc-title: "."
+    crossrefs-hover: false
+    theme: [yeti, style.scss]
+execute:
+  warning: false
+  message: false 
+knitr:
+  opts_chunk:
+    out.width: "100%"
+editor_options: 
+  chunk_output_type: console
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+
+Le but de ce dernier sous-chapitre est d'approfondir les méthodes de recueil de données lorsque celles-ci comportent une information géographique sur la localisation des objets étudiés. Nous allons donc charger non plus seulement des tableaux statistiques mais aussi de l'information géographique décrivant la localisation de poins, lignes ou polygones. Cela implique deux nouveautés :
+
+- l'utilisation du format de transfert GEOJSON qui est une extension de JSON au cas de l'information géographique et qui est importable dans R avec le pakage **spatial features (sf)**.
+- la cartographie rapide d'un fichier sf en mode statique ou dynamique à l'aide du package **tmap**. 
+
+Nous verrons en détail l'utilisation des données géographiques dans les chapitres ultérieurs et on se bornera ici à analyser comment recueillir cette information à l'aide d'une API. On va récupérer cette fois-ci des données au format geojson.
+
+
+
+On charge les packages utiles :
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE, error=FALSE)
+
+## Affichage de tableaux
+library(knitr)
+
+## Requêtes web
+library(httr)
+library(jsonlite)
+
+# Cartographie rapide
+library(sf)
+library(tmap)
+
+## Tidyverse & co
+library(dplyr, warn.conflicts = T, quietly = T)
+```
+
+
+### 1. Récupération par lien de télécgargement
+
+Nous avons récupéré un lien de téléchargement sur le site public.opendatasoft mais en utilisant le format geojson
+
+
+```{r}
+link<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22SUCY-EN-BRIE%22&timezone=Europe%2FBerlin"
+map<-st_read(link,quiet = T)
+class(map)
+```
+
+On voit que le fichier possède maintenant un attribut *sf* (spatial features) en plus de l'attribut *data.frame*
+
+
+### 2. Examen des variables
+
+```{r}
+summary(map)
+```
+
+
+### 3. Cartographie statique
+
+On réalise une carte statique avec le package tmap qui sera expliqué dans la suite du cours :
+
+```{r, warning=F, message=F}
+tmap_mode("plot") +
+tm_shape(map) + 
+  tm_polygons("t1_txchom0") +
+   tm_legend(title="SUCY-EN-BRIE")
+```
+
+### 3. Cartographie dynamique
+
+On réalise une carte dynamique avec le même package tmap en changeant juste le mode
+
+```{r, warning=F, message=F}
+tmap_mode("view") +
+tm_shape(map) + 
+  tm_polygons("t1_txchom0")  + 
+  tm_legend(title="SUCY-EN-BRIE")
+```
+
+### 5. Rédaction d'une fonction
+
+On peut maintenant écrire une fonction qui va dépendre de trois paramètre :
+- nom de la commune en majuscule
+- mode cartographique
+- variable.
+
+
+
+```{r}
+
+carto_com <- function(nomcom="SUCY-EN-BRIE", modecarto="plot", choixvar="t1_txchom0") { 
+
+link<-paste0("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22",nomcom,"%22&timezone=Europe%2FBerlin")
+
+# Importation des données
+map<-st_read(link, quiet=T)
+
+# Affichage de la carte
+
+tmap_mode(modecarto) +
+ tm_shape(map) +
+  tm_polygons(choixvar) +   
+  tm_legend(title=nomcom)
+
+}
+
+
+```
+
+
+### 6. Test de la fonction
+
+Pour tester notre fonction `carto_com()`, on prend l'exemple de la commune de Fontenay-sous-Bois dont on veut visualiser le revenu médian en mode statique
+
+```{r}
+carto_com("FONTENAY-SOUS-BOIS","plot","t1_rev_med")
+```
+
+
+
+On peut de la même manière visualiser le taux de chômage à Ivry-sur-Seine en mode dynamique :
+
+```{r}
+
+carto_com("IVRY-SUR-SEINE","view","t1_txchom0")
+```

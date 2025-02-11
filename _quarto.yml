@@ -2,51 +2,35 @@ project:
   type: website
   output-dir: docs
 
-
-render:
-      - index.qmd
-      - 10-API-INTRO.qmd
-      - 11-API-OPENDATASOFT.qmd
-      - 12-API-exo.qmd
-      - 13-API-CARTO.qmd
-      - 21-CARTO-ParisPC.qmd
-      - 22-CARTO-mapsf.qmd
-      - 23-CARTO-leaflet.qmd
-      - 31-PROJET-data.qmd
-      - 32-PROJET-shiny.qmd
-      - 41-ANSPA-access.qmd
-      - 42-ANSPA-regress.qmd
-      
 website:
-  sidebar:
-    search: true
-    contents:
-      - section: "API"
-        contents:
-          - 10-API-INTRO.qmd
-          - 11-API-OPENDATASOFT.qmd
-          - 12-API-exo.qmd  
-      - section: "CARTO"
-        contents:
-          - 13-API-CARTO.qmd
-          - 21-CARTO-ParisPC.qmd
-          - 22-CARTO-mapsf.qmd
-          - 23-CARTO-leaflet.qmd
-      - section: "PROJET"
-        contents:
-          - 31-PROJET-data.qmd
-          - 32-PROJET-shiny.qmd
-      - section: "ANALYSE SPATIALE"
-        contents:          
-          - 41-ANSPA-access.qmd
-          - 42-ANSPA-regress.qmd
-
- 
+  title: "Datamining2025"
+  navbar:
+    left:
+      - href: index.qmd
+        text: "A propos"
+      - text: "API"
+        menu:
+          - href: 10-API-Theorie.qmd
+            text: "Théorie"
+          - href: 11-API-Import-json.qmd
+            text: "Importation json"
+          - href: 12-API-Import-geojson.qmd
+            text: "Importation geojson"
+          - href: 13-API-Exercices.qmd
+            text: "Exercices"
+    right: 
+      - icon: github # add icons as navbar buttons
+        href: https://github.com/worldregio/theoregio
+        target: _blank
+  page-footer:
+    background: dark
+    left: Copyright 2025, Claude Grasland
 format:
   html:
-    theme: cosmo
+    theme: 
+      light: minty    
+      dark: solar
     css: styles.css
     toc: true
-
 
 

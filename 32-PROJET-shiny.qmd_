@@ -1,0 +1,951 @@
+---
+title: "Projet-Shiny"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  echo=TRUE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="80")
+opts_chunk$set(echo=TRUE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=FALSE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               options(scipen=999))
+opts_knit$set(width=75)
+
+# Packages utilitaires
+library(tidyverse)
+#library(rmdformats)
+
+# Packages graphiques
+library(ggplot2)
+library(RColorBrewer)
+
+#packages cartographiques 
+library(sf)
+#library(leaflet)
+#library(htmlwidgets)
+#library(htmltools)
+
+# Appel d'API
+#library(httr)
+#library(jsonlite)
+#library(geojsonsf)
+
+```
+
+
+
+L'objectif de ce chapitre est de montrer comment construire un programme shiny prenant en entrée un fichier `sf` (spatial features) pour construire ensuite pour différents indicateurs une application interactive de visualisation :
+
+- **de la distribution statistique** : histogramme
+- **de la distribution spatiale** : carte
+
+Nous avons construit un `projet R` dans dossier appelée *Shiny_carto*. Ce dossier contient différentes versions de l'application Shiny et un dossier sport contenant :
+
+1. Un fonds de carte des communes de Paris et Petite Couronne au format sf.
+2. Le tableau nettoyé des adhérents de fédération sportive établi au chapitre précédent.
+
+
+```{r, echo=FALSE}
+knitr::include_graphics("img/shiny_carto.jpg")
+```
+
+
+## pgm001 : mise en page
+
+On commence par créer une application shiny très simple sur le modèle de celle qui est fournie en exemple par Rstudio :
+
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+
+
+# Chargement du tableau de données
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et du sport
+com <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+         mutate(sport=code_fed==111,
+                sportlic = sport*nblic) %>%
+          group_by(code_com) %>%
+             summarise(tot=sum(nblic),
+                       spo=sum(sportlic)) %>%
+          mutate(pct = 100*spo/tot)
+         
+
+
+
+
+
+ui <- fluidPage(
+    # Titre de l'application
+  titlePanel("Le Football dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+   
+            
+            
+            
+            
+            sliderInput(inputId = "Classes",
+                        label = "Nombres de classes : ",
+                        min = 1,
+                        max = 10,
+                        value = 5)
+        ),
+        mainPanel(
+            plotOutput("histplot")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histplot<-renderPlot({hist(com$pct, breaks=input$Classes)})
+   
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+L'application marche, ce qui n'est pas si mal, et elle permet de visualiser la distribution de l'IDH des pays africains avec différents choix de classes en agissant sur le curseur. 
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_001a.png")
+knitr::include_graphics("img/shiny_001b.png")
+```
+
+Toutefois on note plusieurs points d'amélioration possibles
+
+1. **Nombre de classes non conforme aux attentes** : nous avons utilisé la fonction `hist()` avec le paramètre *breaks = k *pour fixer le nombre de classes à k. Mais malheureusement le logiciel R estime souvent pouvoir mieux choisir les classes que l'utilisateur. Et ainsi quand on demande 3 classes (k=3) il décide sans prévenir d'en faire 4 ou lorsque l'on demande 10 classes il n'en fait que 7 ... 
+
+2. **Habillage de l'histogramme incomplet** : il manque des renseignements sur les axes, la source des données, etc...
+
+
+
+## pgm002 : histogramme
+
+On décide d'améliorer la qualité graphique de l'histogramme et on force R à respecter le nombre de classe choisi en lui imposant un découpage en effectifs égaux (quantiles) que l'on calcule.  On a par ailleurs superposé sur l'histogramme une courbe de densité de probabilité qui sera plus ou moins généralisée selon le nombre de classes retenu afin de repérer si la distribution est multimodale. On a utilisé pour cela le paramètre *bw* (bandwidth) de la fonction `density()`pour qu'elle utilise un kernel de paramètre égal à deux fois l'écart-type divisé par le nombre de classes. Enfin, on rajoute un habillage correct sur l'histogramme : 
+
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+
+# Chargement du tableau de données
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et du sport
+com <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+  mutate(sport=code_fed==111,
+         sportlic = sport*nblic) %>%
+  group_by(code_com) %>%
+  summarise(tot=sum(nblic),
+            spo=sum(sportlic)) %>%
+  mutate(pct = 100*spo/tot)
+
+
+# Définition UI et Server de l'application Shiny
+ui <- fluidPage(
+    # Titre de l'application
+    titlePanel("Le Football dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput(inputId = "classes",
+                        label = "Nombres de classes",
+                        min = 1,
+                        max = 10,
+                        value = 5),
+            
+        ),
+        
+        
+        # Graphe montré à l'utilisateur
+        mainPanel(
+            plotOutput("histPlot")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histPlot <- renderPlot({
+        
+       x<-com$pct
+       mybreaks<-quantile(x,(0:input$classes)/input$classes,na.rm=T)
+       hist(x, 
+            breaks=mybreaks,
+            probability=TRUE,
+            col="lightyellow",
+            xlab= "% des licences",
+            ylab = "Densité de probabilité",
+            main= "Le Football dans le Grand Paris",
+            sub = "Source : Ministère de la Jeunesse et des Sports")
+        mybw<-2*sd(x,na.rm=T)/input$classes
+       lines(density(x,bw=mybw,na.rm=T),col="red",lwd=2)
+    })
+    
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+La qualité visuelle de l'histogramme est sérieusement améliorée et on peut désormais obtenir un nombre de classes conforme au choix effectué sur le curseur. On peut bien visualiser le changement du nombre de mode selon le nombre de classes retenues. Ici, on voit que l'application respecte notre choix de faire 3 ou 10 classes sans que R décide à la place de l'utilisateur...
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_002a.png")
+knitr::include_graphics("img/shiny_002b.png")
+```
+
+Cela fait tout de même beaucoup d'efforts pour une seule variable et on ne va pas construire autant d'application qu'il y a d'indicateurs. Il serait donc intéressant de pouvoir **choisir la fédération sportive qui nous intéresse dans une liste d'indicateurs** en ajoutant un nouveau menu.
+
+
+
+## pgm003 : variable
+
+On décide de proposer à l'utilisateur le choix entre onze fédérations sportives on introduit un nouveau widget de type *selectInput* dans le menu de la barre latérale. Ce widget permet de choisir une variable du tableau de données et de lui attribuer un label plus précise que le simple code de la variable. 
+
+Il faut évidemment adapter le code pour que la base de données puisse fournir les renseignements sur chacune des onze fédérations. Il y a donc un travail à faire en amont. 
+
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+
+# Chargement du tableau de données
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et des sports
+sel <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+  mutate(sport= case_when(code_fed=="111"~ "Football",
+                          code_fed=="123"~ "Tennis",
+                          code_fed=="132"~ "Golf",
+                          code_fed=="119"~ "Natation",
+                          code_fed=="117"~ "Judo",    
+                          code_fed=="113"~ "Gymnastique",
+                          code_fed=="219"~ "Danse",  
+                          code_fed=="109"~ "Equitation",
+                          code_fed=="115"~ "Handball", 
+                          code_fed=="133"~ "Rugby",
+                          code_fed=="101"~ "Athlétisme", 
+                          TRUE ~ "Other"))
+
+# Groupement par commune
+spo <- sel %>% group_by(code_com,sport) %>%
+  summarise(spo=sum(nblic)) 
+tot<-sel %>% group_by(code_com) %>%
+  summarise(tot=sum(nblic)) 
+tab<-left_join(spo,tot) %>% mutate(pct=100*spo/tot) %>% as.data.frame()
+
+
+
+
+
+# Définition UI et Server de l'application Shiny
+ui <- fluidPage(
+    # Titre de l'application
+  titlePanel("Les sports dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+            selectInput(inputId = "variable",
+                        label = "Choix de l'indicateur",
+                        choices = c("Football" = "Football",
+                                    "Golf" = "Golf",
+                                    "Tennis" = "Tennis",
+                                    "Natation" = "Natation",
+                                  "Judo"="Judo",
+                                  "Gymnastique" = "Gymnastique",
+                                  "Danse" = "Danse",
+                                  "Equitation" = "Equitation",
+                                  "Handball" = "Handball",
+                                  "Rugby" = "Rugby",
+                                  "Athlétisme" = "Athlétisme"
+                                  ),
+                        
+                        selected = "Football"
+            ),
+            
+            
+            sliderInput(inputId = "classes",
+                        label = "Nombres de classes",
+                        min = 1,
+                        max = 10,
+                        value = 5),
+            
+        ),
+        
+        
+        # Graphe montré à l'utilisateur
+        mainPanel(
+            plotOutput("histPlot")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histPlot <- renderPlot({
+        
+       com<-tab %>% filter(sport==input$variable)
+       x<-com$pct
+       mybreaks<-quantile(x,(0:input$classes)/input$classes,na.rm=T)
+       hist(x, 
+            breaks=mybreaks,
+            probability=TRUE,
+            col="lightyellow",
+            xlab= "% des licences",
+            ylab = "Densité de probabilité",
+            main= paste("Les sports dans le Grand Paris : ", input$variable),
+            sub = "Source : Ministère de la jeunesse et des sports")
+       mybw<-2*sd(x,na.rm=T)/input$classes
+       lines(density(x,bw=mybw,na.rm=T),col="red",lwd=2)
+    })
+    
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+Tout fonctionne bien et on peut désormais comparer la forme de la distribution des variables. Ainsi, le pourcentage de licenciés de la fédération de golf apparaît très dissymétrique à gauche tandis que le rugby montre une distribution plutôt symétrique. Ceci montre que le golf est beaucoup plus concentré spatialement dans quelques commune que le rugby qui est mieux réparti spatialement.  
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_003a.png")
+knitr::include_graphics("img/shiny_003b.png")
+```
+
+Nous pouvons considérer que l'analyse de la distribution statistique est désormais correcte et passer à l'analyse de la **distribution spatiale**, c'est-à-dire a réalisation d'une **carte**. On a évidemment très envie de connaître les communes ou plus de 10% des licences sportives concernent le golf ... même si on se doute un peu de la réponse !
+
+
+## pgm004 : cartographie
+
+Pour ajouter une carte à notre application, nous décidons d'utiliser le package `mapsf` qui offre d'excellente performance et une grande souplesse en matière notamment d'habillage et de choix des palettes.  Nous commençons par une fonction de cartographique très simple et nous effectuons réglage pour afficher la carte et l'histogramme dans la partie droite de l'interface en leur donnant des hauteurs respectives de 500 et 300 pixels.  On pourrait évidemment adopter d'autres choix de mise en page donnant plus ou moins d'importance à chacune des deux figures.
+
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+library(mapsf)
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et des sports
+
+  sel <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+  mutate(sport= case_when(code_fed=="111"~ "Football",
+                          code_fed=="123"~ "Tennis",
+                          code_fed=="132"~ "Golf",
+                          code_fed=="119"~ "Natation",
+                          code_fed=="117"~ "Judo",    
+                          code_fed=="113"~ "Gymnastique",
+                          code_fed=="219"~ "Danse",  
+                          code_fed=="109"~ "Equitation",
+                          code_fed=="115"~ "Handball", 
+                          code_fed=="133"~ "Rugby",
+                          code_fed=="101"~ "Athlétisme", 
+                          TRUE ~ "Other"))
+
+# Groupement par commune
+spo <- sel %>% group_by(code_com,sport) %>%
+  summarise(spo=sum(nblic)) 
+tot<-sel %>% group_by(code_com) %>%
+  summarise(tot=sum(nblic)) 
+tab<-left_join(spo,tot) %>% mutate(pct=100*spo/tot) %>% as.data.frame()
+
+# Fonds de carte
+map<-readRDS("sport/map_com_idf.RDS") 
+
+
+# Définition UI et Server de l'application Shiny
+ui <- fluidPage(
+    # Titre de l'application
+  titlePanel("Les sports dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+          selectInput(inputId = "variable",
+                      label = "Choix de l'indicateur",
+                      choices = c("Football" = "Football",
+                                  "Golf" = "Golf",
+                                  "Tennis" = "Tennis",
+                                  "Natation" = "Natation",
+                                  "Judo"="Judo",
+                                  "Gymnastique" = "Gymnastique",
+                                  "Danse" = "Danse",
+                                  "Equitation" = "Equitation",
+                                  "Handball" = "Handball",
+                                  "Rugby" = "Rugby",
+                                  "Athlétisme" = "Athlétisme"
+                      ),
+                      
+                      selected = "Football"
+          ),
+                      
+            
+            
+            sliderInput(inputId = "classes",
+                        label = "Nombres de classes",
+                        min = 1,
+                        max = 10,
+                        value = 5),
+            
+        ),
+        
+        
+        # Graphe montré à l'utilisateur
+        mainPanel(
+          plotOutput("mapPlot",height = "400px"),
+          plotOutput("histPlot", height = "300px")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histPlot <- renderPlot({
+        
+       com<-tab %>% filter(sport==input$variable)
+       x<-com$pct
+       mybreaks<-quantile(x,(0:input$classes)/input$classes,na.rm=T)
+       hist(x, 
+            breaks=mybreaks,
+            probability=TRUE,
+            col="lightyellow",
+            xlab= "% des licences",
+            ylab = "Densité de probabilité",
+            main= paste("Les sports dans le Grand Paris : ", input$variable),
+            sub = "Source : Ministère de la jeunesse et des sports")
+       mybw<-2*sd(x,na.rm=T)/input$classes
+       lines(density(x,bw=mybw,na.rm=T),col="red",lwd=2)
+    })
+    
+    output$mapPlot <-renderPlot({
+      com<-tab %>% filter(sport==input$variable)
+  #    com<-don %>% filter(sport=="Football")
+      mapcom<-merge(map,com,by.x="insee_com",by.y="code_com")
+    #  mapcom$pct[is.na(mapcom$pct)]<-0
+      x<-mapcom$pct
+      mybreaks<-quantile(x,(0:input$classes)/input$classes,na.rm=T)
+      mf_map(mapcom, 
+             var = "pct",
+             type = "choro",
+             breaks = mybreaks)
+    })
+    
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+    
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_004.png")
+```
+
+Mais nous pouvons encore améliorer plusieurs choses. 
+
+1. **L'habillage de la carte est insuffisant** : il lui manque un titre, une échelle, une orientation, etc...
+
+2. **L'histogramme et la carte ont des couleurs différentes** alors qu'ils utilisent la même division en classes. 
+
+3. **Le choix des classes devrait être plus ouvert** et ne pas se limiter aux classes d'effectifs égaux. 
+
+
+
+## pgm005 : classes
+
+Le package `mapsf` offre une fonction *mf_get_breaks()* qui propose plusieurs méthodes de division d'une variable en classes. Nous en retenons ici trois qui sont les plus courantes en cartographie :
+
+- amplitudes égales
+- effectifs égaux
+- Jenks (minimisation de la variance intra-classe)
+
+Si l'on représente la variable "golf" avec des classes d'**amplitudes égales**, on pourra mieux mettre en valeur la concentration de ce sport dans quelques communes seulement. La carte précédente en **quantiles (effectifs égaux)** avait en effet tendance à masquer cette différence puisque chacune des classes regroupait le même nombre de communes. 
+
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+library(mapsf)
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et des sports
+sel <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+  mutate(sport= case_when(code_fed=="111"~ "Football",
+                          code_fed=="123"~ "Tennis",
+                          code_fed=="132"~ "Golf",
+                          code_fed=="119"~ "Natation",
+                          code_fed=="117"~ "Judo",    
+                          code_fed=="113"~ "Gymnastique",
+                          code_fed=="219"~ "Danse",  
+                          code_fed=="109"~ "Equitation",
+                          code_fed=="115"~ "Handball", 
+                          code_fed=="133"~ "Rugby",
+                          code_fed=="101"~ "Athlétisme", 
+                          TRUE ~ "Other"))
+
+# Groupement par commune
+spo <- sel %>% group_by(code_com,sport) %>%
+  summarise(spo=sum(nblic)) 
+tot<-sel %>% group_by(code_com) %>%
+  summarise(tot=sum(nblic)) 
+tab<-left_join(spo,tot) %>% mutate(pct=100*spo/tot) %>% as.data.frame()
+
+# Fonds de carte
+map<-readRDS("sport/map_com_idf.RDS") 
+
+
+# Définition UI et Server de l'application Shiny
+ui <- fluidPage(
+    # Titre de l'application
+  titlePanel("Les sports dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+          selectInput(inputId = "variable",
+                      label = "Choix de l'indicateur",
+                      choices = c("Football" = "Football",
+                                  "Golf" = "Golf",
+                                  "Tennis" = "Tennis",
+                                  "Natation" = "Natation",
+                                  "Judo"="Judo",
+                                  "Gymnastique" = "Gymnastique",
+                                  "Danse" = "Danse",
+                                  "Equitation" = "Equitation",
+                                  "Handball" = "Handball",
+                                  "Rugby" = "Rugby",
+                                  "Athlétisme" = "Athlétisme"
+                      ),
+                      
+                      selected = "Football"
+          ),
+          
+            
+            sliderInput(inputId = "classes",
+                        label = "Nombres de classes",
+                        min = 1,
+                        max = 10,
+                        value = 5),
+            
+            selectInput(inputId = "methode",
+                        label = "Type de classes",
+                        choices = c("Effectifs égaux" = "quantile",
+                                    "Amplitudes égales" = "equal",
+                                    "Jenks" = "jenks"),
+                        selected = "quantile"),
+            
+        ),
+        
+
+        
+        
+        # Graphe montré à l'utilisateur
+        mainPanel(
+          plotOutput("mapPlot",height = "400px"),
+          plotOutput("histPlot", height = "300px")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histPlot <- renderPlot({
+        
+       com<-tab %>% filter(sport==input$variable)
+       x<-com$pct
+       mybreaks<-mf_get_breaks(x, nbreaks= input$classes, breaks=input$methode)
+       hist(x, 
+            breaks=mybreaks,
+            probability=TRUE,
+            col="lightyellow",
+            xlab= "% des licences",
+            ylab = "Densité de probabilité",
+            main= paste("Les sports dans le Grand Paris : ", input$variable),
+            sub = "Source : Ministère de la jeunesse et des sports")
+       mybw<-2*sd(x,na.rm=T)/input$classes
+       lines(density(x,bw=mybw,na.rm=T),col="red",lwd=2)
+    })
+    
+    output$mapPlot <-renderPlot({
+      com<-tab %>% filter(sport==input$variable)
+      mapcom<-merge(map,com,by.x="insee_com",by.y="code_com")
+      x<-mapcom$pct
+      mybreaks<-mf_get_breaks(x, nbreaks= input$classes, breaks=input$methode)
+      mf_map(mapcom, 
+             var = "pct",
+             type = "choro",
+             breaks = mybreaks)
+    })
+    
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_005.png")
+```
+
+Avec ce nouveau choix, la carte des licenciés du golf apparaît remarquablement centré sur les communes et les arrondissements les plus riches de Paris (Neuilly, 16e arrondissement, ...) et seules quelques communes de l'est parisien comme Saint-Maur-des-Fossés arrivent de justesse à sortir de la première classe qui regroupe les valeurs les plus faibles. 
+
+La question ici n'est pas de savoir s'il y a une "bonne" ou une "mauvaise" carte, mais simplement de laisser l'utilisateur choisir celle qui correspond le mieux à ce qu'il veut analyser ou mettre en valeur. 
+
+## pgm006 : couleurs
+
+Jusqu'ici nous avons utilisé des palettes par défauts pour les cartes et une teinte unie pour l'histogramme. Mais puisque les classes sont les mêmes, pourquoi ne pas utiliser la même palette pour les deux figuress ? Et pouquoi ne pas offrir une plus grande liberté de choix des couleurs en allant par exemple choisir quelques unes des palettes d'un package comme `RColorBrewer`qui en offre un grand nombre.
+
+
+
+
+```{r}
+library(RColorBrewer)
+display.brewer.all()
+```
+
+Tout en gardant la variable "golf" on va utiliser cette fois-ci une participation selon la **méthode de Jenks** qui est la plus "scientifique" des trois proposées. Elle permet en effet de minimiser la variance interne des classes et maximiser leur variance externe. Elle s'apparente donc à un classification selon la méthode de Ward, mais basée sur un seul critère. On décide par ailleurs d'utiliser la palette "spectral" qui renforce l'opposition entre les communes riches (en bleu) et pauvres (en rouge). Cela donne évidemment une tonalité plutôt politique à une carte qui se prétendait scientifique...
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+library(mapsf)
+library(RColorBrewer)
+
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et des sports
+sel <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+  mutate(sport= case_when(code_fed=="111"~ "Football",
+                          code_fed=="123"~ "Tennis",
+                          code_fed=="132"~ "Golf",
+                          code_fed=="119"~ "Natation",
+                          code_fed=="117"~ "Judo",    
+                          code_fed=="113"~ "Gymnastique",
+                          code_fed=="219"~ "Danse",  
+                          code_fed=="109"~ "Equitation",
+                          code_fed=="115"~ "Handball", 
+                          code_fed=="133"~ "Rugby",
+                          code_fed=="101"~ "Athlétisme", 
+                          TRUE ~ "Other"))
+
+# Groupement par commune
+spo <- sel %>% group_by(code_com,sport) %>%
+  summarise(spo=sum(nblic)) 
+tot<-sel %>% group_by(code_com) %>%
+  summarise(tot=sum(nblic)) 
+tab<-left_join(spo,tot) %>% mutate(pct=100*spo/tot) %>% as.data.frame()
+
+# Fonds de carte
+map<-readRDS("sport/map_com_idf.RDS") 
+
+
+# Définition UI et Server de l'application Shiny
+ui <- fluidPage(
+    # Titre de l'application
+  titlePanel("Les sports dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+          selectInput(inputId = "variable",
+                      label = "Choix de l'indicateur",
+                      choices = c("Football" = "Football",
+                                  "Golf" = "Golf",
+                                  "Tennis" = "Tennis",
+                                  "Natation" = "Natation",
+                                  "Judo"="Judo",
+                                  "Gymnastique" = "Gymnastique",
+                                  "Danse" = "Danse",
+                                  "Equitation" = "Equitation",
+                                  "Handball" = "Handball",
+                                  "Rugby" = "Rugby",
+                                  "Athlétisme" = "Athlétisme"
+                      ),
+                      
+                      selected = "Football"
+          ),
+            
+            sliderInput(inputId = "classes",
+                        label = "Nombres de classes",
+                        min = 1,
+                        max = 10,
+                        value = 5),
+            
+            selectInput(inputId = "methode",
+                        label = "Type de classes",
+                        choices = c("Effectifs égaux" = "quantile",
+                                    "Amplitudes égales" = "equal",
+                                    "Jenks" = "jenks"),
+                        selected = "quantile"),
+            
+            selectInput(inputId = "palette",
+                        label = "Couleurs",
+                        choices = c("Oranges" = "Oranges",
+                                    "Bleus" = "Blues",
+                                    "Verts" = "Greens",
+                                    "Rouges" = "Reds",
+                                    "Gris" = "Greys",
+                                    "Spectral"= "Spectral"),
+                        selected = "Oranges"),
+            
+            
+        ),
+        
+
+        
+        
+        # Graphe montré à l'utilisateur
+        mainPanel(
+          plotOutput("mapPlot",height = "400px"),
+          plotOutput("histPlot", height = "300px")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histPlot <- renderPlot({
+        
+       com<-tab %>% filter(sport==input$variable)
+       x<-com$pct
+       mybreaks<-mf_get_breaks(x, nbreaks= input$classes, breaks=input$methode)
+       mypalette<-brewer.pal(name = input$palette,n = input$classes)
+       hist(x, 
+            breaks=mybreaks,
+            probability=TRUE,
+            col=mypalette,
+            xlab= "% des licences",
+            ylab = "Densité de probabilité",
+            main= paste("Les sports dans le Grand Paris : ", input$variable),
+            sub = "Source : Ministère de la jeunesse et des sports")
+       mybw<-2*sd(x,na.rm=T)/input$classes
+       lines(density(x,bw=mybw,na.rm=T),col="red",lwd=2)
+    })
+    
+    output$mapPlot <-renderPlot({
+      com<-tab %>% filter(sport==input$variable)
+      mapcom<-merge(map,com,by.x="insee_com",by.y="code_com")
+      x<-mapcom$pct
+      mybreaks<-mf_get_breaks(x, nbreaks= input$classes, breaks=input$methode)
+      mypalette<-brewer.pal(name = input$palette,n = input$classes)
+      mf_map(mapcom, 
+             var = "pct",
+             type = "choro",
+             breaks = mybreaks,
+             pal=mypalette)
+    })
+    
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+  
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_006.png")
+```
+
+Le résultat est nettement meilleur car le lecteur peut facilement passer désormais de la carte à l'histogramme.  Et s'il trouve la palette "spectral" trop politique, il peut revenir à une analyse plus neutre et plus scientifique en prenant une simple variation de gris. 
+
+## pgm007 : Où sont les femmes ?
+
+Il reste encore pas mal de petits détails à améliorer (en pratique on n'a jamais fini ...) pour aboutir à une application satisfaisante. Mais avant de passer au finition il faut s'interroger sur l'objet même de l'analyse et se demander par exemple s'il est réellement pertinent de mélanger hommes et femmes dans nos analyses. 
+
+Nous avons vu dans les analyses préliminaires que beaucoup de sport sont très marqués en faveur d'un genre ou l'autre. Il peut donc être pertinent de les analyser séparément plutôt que de les mélanger. Ce qui permettra également de comparer leurs distributions respectives pour un même sport. 
+
+L'adaptation du code est très simple ici parce que la structure du tableau de données a été bien conçue (format long). 
+
+```{r, eval=FALSE}
+library(shiny)
+library(tidyverse)
+library(sf)
+library(mapsf)
+library(RColorBrewer)
+
+don <- readRDS("sport/licpop_idf_2018.RDS") %>% mutate(pop=as.numeric(pop))
+
+# selection de la zone d'étude et des sports
+sel <- don %>% filter(substr(code_com,1,2) %in% c("75","92","93","94")) %>%
+  mutate(sport= case_when(code_fed=="111"~ "Football",
+                          code_fed=="123"~ "Tennis",
+                          code_fed=="132"~ "Golf",
+                          code_fed=="119"~ "Natation",
+                          code_fed=="117"~ "Judo",    
+                          code_fed=="113"~ "Gymnastique",
+                          code_fed=="219"~ "Danse",  
+                          code_fed=="109"~ "Equitation",
+                          code_fed=="115"~ "Handball", 
+                          code_fed=="133"~ "Rugby",
+                          code_fed=="101"~ "Athlétisme", 
+                          TRUE ~ "Other"))
+
+
+# Groupement par commune
+spo <- sel %>% group_by(code_com,sport,sexe) %>%
+  summarise(spo=sum(nblic)) 
+tot<-sel %>% group_by(code_com) %>%
+  summarise(tot=sum(nblic)) 
+tab<-left_join(spo,tot) %>% mutate(pct=100*spo/tot) %>% as.data.frame()
+
+# Fonds de carte
+map<-readRDS("sport/map_com_idf.RDS") 
+
+
+# Définition UI et Server de l'application Shiny
+ui <- fluidPage(
+    # Titre de l'application
+  titlePanel("Les sports dans le Grand Paris en 2017-2018"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+          selectInput(inputId = "variable",
+                      label = "Choix de l'indicateur",
+                      choices = c("Football" = "Football",
+                                  "Golf" = "Golf",
+                                  "Tennis" = "Tennis",
+                                  "Natation" = "Natation",
+                                  "Judo"="Judo",
+                                  "Gymnastique" = "Gymnastique",
+                                  "Danse" = "Danse",
+                                  "Equitation" = "Equitation",
+                                  "Handball" = "Handball",
+                                  "Rugby" = "Rugby",
+                                  "Athlétisme" = "Athlétisme"
+                      ),
+                      selected = "Football"
+          ),                 
+            
+            selectInput(inputId = "Sexe",
+                        label = "Sexe",
+                        choices = c("Homme" = "Homme",
+                                    "Femme" = "Femme"),
+                        selected = "Homme"
+            ),
+            
+            
+            
+            sliderInput(inputId = "classes",
+                        label = "Nombres de classes",
+                        min = 1,
+                        max = 10,
+                        value = 5),
+            
+            selectInput(inputId = "methode",
+                        label = "Type de classes",
+                        choices = c("Effectifs égaux" = "quantile",
+                                    "Amplitudes égales" = "equal",
+                                    "Jenks" = "jenks"),
+                        selected = "quantile"),
+            
+            selectInput(inputId = "palette",
+                        label = "Couleurs",
+                        choices = c("Oranges" = "Oranges",
+                                    "Bleus" = "Blues",
+                                    "Verts" = "Greens",
+                                    "Rouges" = "Reds",
+                                    "Gris" = "Greys",
+                                    "Spectral"= "Spectral"),
+                        selected = "Oranges"),
+            
+            
+        ),
+        
+
+        
+        
+        # Graphe montré à l'utilisateur
+        mainPanel(
+          plotOutput("mapPlot",height = "400px"),
+          plotOutput("histPlot", height = "300px")
+        )
+    )
+)
+
+server <- function(input, 
+                   output) {
+    output$histPlot <- renderPlot({
+        
+       com<-tab %>% filter(sport==input$variable, sexe==input$Sexe)
+       x<-com$pct
+       mybreaks<-mf_get_breaks(x, nbreaks= input$classes, breaks=input$methode)
+       mypalette<-brewer.pal(name = input$palette,n = input$classes)
+       hist(x, 
+            breaks=mybreaks,
+            probability=TRUE,
+            col=mypalette,
+            xlab= "% des licences",
+            ylab = "Densité de probabilité",
+            main= paste("Les sports dans le Grand Paris : ", input$variable),
+            sub = "Source : Ministère de la jeunesse et des sports")
+       mybw<-2*sd(x,na.rm=T)/input$classes
+       lines(density(x,bw=mybw,na.rm=T),col="red",lwd=2)
+    })
+    
+    output$mapPlot <-renderPlot({
+      com<-tab %>% filter(sport==input$variable, sexe==input$Sexe)
+      mapcom<-merge(map,com,by.x="insee_com",by.y="code_com")
+      x<-mapcom$pct
+      mybreaks<-mf_get_breaks(x, nbreaks= input$classes, breaks=input$methode)
+      mypalette<-brewer.pal(name = input$palette,n = input$classes)
+      mf_map(mapcom, 
+             var = "pct",
+             type = "choro",
+             breaks = mybreaks,
+             pal=mypalette)
+    })
+    
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+
+On  prend comme exemple la distribution de la part du Handball par commune car c'est un sport où la France a obtenu de bons résultats aussi bien chez les hommes que chez les femmes. Pour lutter contre les stéréotypes, on choisit de cartographier les hommes dans une palette de teintes de rouges (incluant donc le rose ...) et les femmes dans des teintes de bleus.
+
+
+
+```{r,  echo=FALSE}
+knitr::include_graphics("img/shiny_007a.png")
+knitr::include_graphics("img/shiny_007b.png")
+```
+Il ressort de la comparaison des deux cartes et des deux histogrammes que les hommes sont bien dispersés dans l'espace, même s'ils sont relativement plus présents à l'est et au sud. Quand aux femmes, leur distribution est beaucoup plus concentrée autour de quelques communes
+
+
+## Conclusion 
+
+Que faut-il retenir de cet exercice ?
+
+1. **Commencer par des applications très simples** : le point de départ d'une application shiny sera le plus souvent un programme d'exemple proposé par Rstudio.
+
+2. **Avancer pas à pas** : il vaut mieux améliorer un seu point à la fois afin de pouvoir repérer ses erreurs et revenir si besoin en arrière.
+
+3. **Avoir un objectif général : ** le plus important est de ne pas se disperser et de bein savoir ce que l'on veut faire (ici : un histogramme et une carte).
+
+4. **Utiliser un petit tableau pour commencer : ** inutile de tester l'application sur toutes les variables d'entrée de jeu. Commencer par une seule variable, puis deux ou trois avant de passer au tableau complet.
+
+5. **Améliorer l'esthétique à la fin : ** ce n'est q'une fois que toutes les fonctions marchent qu'on peut commencer à rentrer dans le détail de la décoration, des couleurs, ...

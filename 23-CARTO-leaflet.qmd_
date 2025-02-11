@@ -1,0 +1,567 @@
+---
+title: "Carto-leaflet"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  echo=TRUE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="80")
+opts_chunk$set(echo=TRUE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=FALSE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               options(scipen=999))
+opts_knit$set(width=75)
+
+# Packages utilitaires
+library(dplyr)
+library(rmdformats)
+
+# Packages graphiques
+library(ggplot2)
+library(RColorBrewer)
+
+#packages cartographiques 
+library(sf)
+library(leaflet)
+library(htmlwidgets)
+library(htmltools)
+
+# Appel d'API
+library(httr)
+library(jsonlite)
+library(geojsonsf)
+
+```
+
+
+
+## Premiers pas
+
+<p style="border:0.5px; border-style:solid; border-color:navajowhite3; padding: 1em; font-size:15px">
+**OBJECTIFS** : Ce cours propose de fournir les bases élémentaires du logiciel Leaflet. Il est très largement inspiré d'un article d'Elena Salette publié sur l'excellent site de formation ThinkR et intitulé [Cartographie interactive : comment visualiser mes données spatiales de manière dynamique avec leaflet ?](https://thinkr.fr/cartographie-interactive-comment-visualiser-mes-donnees-spatiales-de-maniere-dynamique-avec-leaflet/) 
+</p>
+
+<p style="border:0.5px; border-style:solid; border-color:navajowhite3; padding: 1em; font-size:15px">
+**BUG WARNING** : Il peut arriver que la transformation du fichier .Rmd en .html ne s'opère pas et que vous voyiez apparaître le message d'erreur suivant **RMarkdown cannot knit: html_dependency not found**. Ce message d'erreur persiste même après avoir corrigé le code... ce qui est très pénible. Après avoir cherché sur les forums de discussion, j'ai trouvé une première réponse [sur stackoverflow](https://stackoverflow.com/questions/53750383/rmarkdown-error-path-for-html-dependency-not-found) qui consiste simplement à aller sur **la flèche descendnate à droite du bouton knitr** et effectuer un **clear knitr cache** avant de relancer le Knitr. Apparemment ça marche, sans que je sache bien pourquoi. Mais la solution la plus efficace semble être d'insérer une option **cache=FALSE** dans les options globales du fichier Markdown. Cela va sans doute un peu ralentir l'affichage des pages HTML,mais évite les problèmes. On pourra toujours rétablir **cache=TRUE** si nécessaire
+</p>
+
+
+
+Notre premier objectif très limité sera de construire une carte interactive utilisant le fonds de carte OpenStreetMap que l'on pourra zoomer en avant ou en arrière. La carte comportera la localisation de la place de la gare à Sucy-en-Brie avec une "épingle" de localisation comportant une photographie de la gare et un petit texte de promotion de celle-ci. 
+
+### Lancement avec `leaflet()`
+
+Nous allons avoir besoin des packages suivants :
+
+- `leaflet` puisque c'est l'objet même du cours !
+- `dplyr` afin de pouvoir construire des programmes utilisant des pipes `%>%`
+- `sf` pour charger des fonds de carte de différents types (points, lignes polygones)
+- `htmltools` et `htmlwidgets` pour ajouter des popups interactifs sur notre carte
+
+Pour vérifier que le package leaflet est bien installé, nous créons une première carte (vide !)
+
+```{r}
+map <- leaflet()
+
+map
+```
+
+Et il n'y a ... RIEN ! si ce n'est un bouton de zoom
+
+
+### Remplissage avec `addTiles()`
+
+On ajoute sur ce fond de carte vide des "tuiles" cartographiques qui sont des images se modifiant selon l'échelle pour apporter plus ou moins de détails. Par défaut, le fonds de carte de référence est le fonds `OpenStreetMap`
+
+```{r}
+library(leaflet)
+
+map <- leaflet() %>%
+          addTiles()
+
+map
+```
+La carte est désormais interactive et on peut effectuer des zooms ou se déplacer.
+
+
+
+
+### Calage avec `setView()`
+
+Nous allons ensuite choisir un point de référence, par exemple la place de la gare à Sucy-en-Brie. Pour trouver les coordonnées de latitude et longitude, la solution la plus simple est d'utiliser [Google Maps](https://www.google.fr/maps) puis de zoomer sur la zone d'étude et enfin d'**effectuer un click droit avec la souris sur le point dont on cherche les coordonnées** pour obtenir dans un popup les coordonnées recherchées : 
+
+![coordonnnées de la place de la gare de Sucy](img/gare_sucy_coord_googlemap.png)
+On peut alors procéder à une double opération de **centrage** de notre carte et de définition d'une **échelle d'observation** afin que la carte produite par `leaflet`couvre bien la zone qui nous intéresse. Cette double opération est réalisée à l'aide de la fonction `setView()` assortie des trois paramètre suivants :
+
+- `lng =` pour la longitude
+- `lat =` pour la latitude
+- `zoom =` pour le degré d'aggrandissement de la carte de 1 pour le Monde entier à 20 pour une vision ulra locale
+
+
+```{r}
+map <- leaflet() %>% 
+          addTiles() %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 17)
+
+map
+```
+
+Une fois qu'on a vérifié le centrage avec un zoom fort (ici 17), on peut refaire la carte en utilisant un zoom plus faible, par exemple un zoom de 12 permettant de visualiser toute la commune de Sucy et les communes voisines.
+
+```{r}
+map <- leaflet() %>% 
+          addTiles() %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 12)
+
+map
+```
+
+### Personalisation avec  `addProviderTiles()`
+
+Les tuiles OpenStreetMap qui servent de fonds de carte par défaut peuvent être remplacés par des tuiles personalisées fournies par des producteurs publics ou privés. On peut obtenir la liste des tuiles disponibles en tapant `providers` dans la console de R studio et les tester une par une. Mais il est souvent plus simple et plus rapide d'aller visualiser les tuiles disponibles sur [ce site web](http://leaflet-extras.github.io/leaflet-providers/preview/) où l'on peut centrer le monde sur sa zone d'étude et voir ce que donnent les différentes familles de tuiles. 
+
+A titre d'exemple, les tuiles `OpenTopoMap` permettent de voir la carte topographique de type IGN en couleur :
+
+
+```{r}
+map <- leaflet() %>% 
+            addProviderTiles('OpenTopoMap') %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 12)
+
+map
+
+```
+
+La couche `Esri.WorldTopoMap` fournit également une imagerie précise mais de couleurs plus neutre que les tuiles `OpenTopoMap` ou OpenStreetMap , ce qui sera intéressant si on superspose des marqueurs de couleur vive. 
+
+
+```{r}
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 12)
+map
+
+```
+
+
+
+### Affichage d'un point avec `addMarkers()`
+
+L'usage le plus fréquent de `leaflet`consiste à ajouter des éléments de localisation ponctuelle appelés `markers`et de rendre ces objets ponctuels interactifs avec l'ouverture de fenêtres `popups`lorsqu'on clique dessus avec la souris. On va donc voir pas à pas comment construire de telles cartes interactives en partant du cas le plus simple (marqueur unique) pour aller vers les cas plus complexes (ensemble de marqueurs de taille, couleur et formes différentes).
+
+Nous allons commencer par indiquer l'emplacement de la place de la gare de Sucy-en-Brie sur notre carte précédente à l'aide de la fonction `addMarkers()` : 
+
+```{r}
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.77141, lng=2.50870, zoom = 12) %>% 
+            addMarkers(lat = 48.77141, lng=2.50870)
+map
+```
+On constate que le marqueur donne bien la position choisi mais n'est pas interactif. Il faut ajouter plus de paramètres pour assurer l'interactivité. 
+
+### Ajout d'un `label`ou d'un `popup`
+
+On peut définir deux comportements d'un marker selon que la souris ne fait que passer dessus (`label`) ou selon que l'utilisateur effectue un click sur marker et déclenche l'ouverture d'une fenêtre (`popup`). Dans sa version la plus simple, l'interactivité consiste à ajouter une chaîne de caractère à ces deux paramètres. 
+
+```{r}
+icone_gare <-makeIcon(iconUrl = "img/gare_sucy_coord_googlemap.png")
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.77141, lng=2.50870, zoom = 12) %>% 
+            addMarkers(lat = 48.77141, lng=2.50870,
+                      # En passant la souris
+                      label = "GARE DE SUCY-BONNEUIL", 
+                      # En cliquant sur l'icone
+                       popup = "La gare RER A de Sucy Bonneuil est bien reliée aux communes 
+                                 environnantes par un réseau de bus partant dans toutes les directions")
+map
+```
+
+
+### Amélioration du `popup`
+
+Mais on peut faire beaucoup mieux, notamment pour la fenêtre `popup`qui peut prendre la forme d'une mini-page web dont on fixe le contenu en html avec la fonction `paste0()` et les dimensions avec le sous-paramètre `popupOptions()`. 
+
+
+```{r}
+
+
+# Préparation de la fenêtre Popup
+    my_popup = paste0(
+      "<b> LA GARE DE SUCY",
+      "</b><br/><img src=https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Gare_Sucy-en-Brie.jpg/1200px-Gare_Sucy-en-Brie.jpg width='200px'><br/>",
+      "La gare RER A de Sucy Bonneuil est bien reliée aux communes 
+                                 environnantes par un réseau de bus partant dans toutes les directions.")
+
+
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.77141, lng=2.50870, zoom = 12) %>% 
+            addMarkers(lat = 48.77141, lng=2.50870,
+                      # En passant la souris
+                      label = "GARE DE SUCY-BONNEUIL", 
+                      # En cliquant sur l'icone
+                       popup = my_popup, 
+                      # Quelques options de la popup
+                        popupOptions = 
+                      list(maxHeight = 150, maxWidth = 200))
+map
+
+```
+
+
+### Prolongements
+
+Et voila, le tour est joué. Il faut maintenant réfléchir à la façon de construire une carte comportant un ensemble d'épingles similaires avec des couleurs ou des formes différentes, des messages différents, des photographies variées ... Il ne sera alors évidemment pas possible d'ajouter une commande addMarkers() pour chaque épingle si la carte en comporte des centaines. 
+
+Si vous avez bien compris ce cours, vous pourrez trouver des réponses en lisant de façon autonome le reste de l'article dont nous nous somme inspiré : [Cartographie interactive : comment visualiser mes données spatiales de manière dynamique avec leaflet ?](https://thinkr.fr/cartographie-interactive-comment-visualiser-mes-donnees-spatiales-de-maniere-dynamique-avec-leaflet/) 
+
+
+
+## Cartographie de points
+
+
+Nous allons prendre comme exemple un fichier contenant la localisation des tous les terrains de football de France en 2017.
+
+```{r}
+don<-st_read("data/foot/res_equipements_2017.shp")
+```
+
+
+
+
+### Préparation des données
+
+On sélectionne les variables utiles et on ne retient que les terrains situés dans Paris + PC
+
+```{r}
+
+
+
+sel<-don %>% select(id = insnumeroin,
+                    com_code = cominsee,
+                    com_nom = comlib,
+                    ins = insnom,
+                    anc = equanneeser,
+                    sup = equsurfacee
+                    ) %>%
+              mutate(anc=as.numeric(anc),
+                     sup=as.numeric(sup)) %>%
+              filter(is.na(anc)==F,
+                     is.na(sup)==F,
+                     substr(com_code,1,2) %in% c("75","92","93","94"))
+
+
+
+summary(sel)
+```
+
+
+
+### Cartographie des localisations
+
+On commence par créer une carte des localisations des installations sportives avec AddCircleMarkers()
+
+
+```{r}
+
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+             addCircleMarkers(data=sel)
+
+map
+```
+
+
+
+
+### Réglage de la taille des cercles
+
+On règle la taille des cercles en fonction de la surface des installations 
+
+
+```{r}
+# Calcul du diamètre des cercles
+  sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+  
+             addCircleMarkers(data=sel,
+                              radius= ~myradius,    # diamètre
+                              stroke=FALSE,         # pas de bordure           
+                              fillOpacity = 0.5)    # opacité 
+            
+                              
+
+map
+```
+
+### Réglage de la couleur des cercles 
+
+On fait varier la couleur des cercles en fonction due l'ancienneté des installations
+
+
+```{r}
+# Calcul du diamètre des cercles
+  sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
+
+# Choix des classes 
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
+    
+# Choix de la palette (c'est une fonction !)
+   mypal <- colorBin('Spectral', 
+                       reverse = T,
+                       sel$anc,
+                       bins=mycut)
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+  
+             addCircleMarkers(data=sel,
+                              radius= ~myradius,    # diamètre
+                              stroke=TRUE,          # bordure   
+                              weight=1  ,           # épaisseur de la bordure
+                              color= "black",      # couleur de la bordure
+                              opacity = 0.7  ,       # opacité de la bordure 
+                              fillOpacity = 0.5,    # opacité 
+                              fillColor = ~mypal(anc)
+                              )    %>%
+              addLegend(data = sel,
+                      pal = mypal, 
+                      title = "Ancienneté",
+                      values =~anc, 
+                      position = 'topright') 
+            
+                              
+
+map
+```
+
+
+
+### Ajout d'un popup d'information
+
+On rajoute un popup pour afficher toutes les informations sur chaque terrain 
+
+
+```{r}
+# Calcul du diamètre des cercles
+  sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
+
+# Choix des classes 
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
+    
+# Choix de la palette (c'est une fonction !)
+   mypal <- colorBin('Spectral', 
+                       reverse = T,
+                       sel$anc,
+                       bins=mycut)
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(sel)), function(i) {
+      paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
+               paste("Surface     : ", sel$sup[i]), '<br>',
+               paste("Ancienneté  : " ,sel$anc[i]))
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+  
+             addCircleMarkers(data=sel,
+                              radius= ~myradius,       # diamètre
+                              stroke=TRUE,             # bordure   
+                              weight=1  ,              # épaisseur de la bordure
+                              color= "black",          # couleur de la bordure
+                              opacity = 0.7  ,         # opacité de la bordure 
+                              fillOpacity = 0.5,       # opacité du remplissage
+                              fillColor = ~mypal(anc), # couleur de remplissage
+                               popup = mypopups,       # Popup !
+                              )    %>%
+              addLegend(data = sel,
+                      pal = mypal, 
+                      title = "Ancienneté",
+                      values =~anc, 
+                      position = 'topright') 
+            
+                              
+
+map
+   
+```
+
+### Choix des tuiles
+
+On fait varier les tuiles pour offrir la possibilité de visualiser la position des maisons sur un plan ou sur une photo aérienne.
+
+```{r}
+# Calcul du diamètre des cercles
+  sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
+
+# Choix des classes 
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
+    
+# Choix de la palette (c'est une fonction !)
+   mypal <- colorBin('Spectral', 
+                       reverse = T,
+                       sel$anc,
+                       bins=mycut)
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(sel)), function(i) {
+      paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
+               paste("Surface     : ", sel$sup[i]), '<br>',
+               paste("Ancienneté  : " ,sel$anc[i]))
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+               # Tuiles
+               addTiles(group = "OSM ") %>%
+               addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
+               addProviderTiles('Esri.WorldImagery', group = "ESRI photo.") %>%
+              # Contrôle des tuiles
+               addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
+                                 position = "bottomright") %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+  
+             addCircleMarkers(data=sel,
+                              radius= ~myradius,       # diamètre
+                              stroke=TRUE,             # bordure   
+                              weight=1  ,              # épaisseur de la bordure
+                              color= "black",          # couleur de la bordure
+                              opacity = 0.7  ,         # opacité de la bordure 
+                              fillOpacity = 0.5,       # opacité du remplissage
+                              fillColor = ~mypal(anc), # couleur de remplissage
+                               popup = mypopups,       # Popup !
+                              )    %>%
+              addLegend(data = sel,
+                      pal = mypal, 
+                      title = "Ancienneté",
+                      values =~anc, 
+                      position = 'topright') 
+            
+                              
+
+map
+
+
+
+```
+
+### Ajout d'une couche de polygones
+
+On décide d'ajouter le polygone donnant le contour de la commune de Sucy-en-Brie ainsi que celui des quarties Iris.
+
+```{r}
+com<-readRDS("data/RP/map_com.RDS") 
+
+dep <- readRDS("data/RP/map_dep.RDS") 
+
+# Calcul du diamètre des cercles
+  sel$myradius <-10*sqrt(sel$sup/max(sel$sup,na.rm=T))
+
+# Choix des classes 
+    mycut<-c(1900, 1950, 1960,1970,1980,2000,2010,2020)
+    
+# Choix de la palette (c'est une fonction !)
+   mypal <- colorBin('Spectral', 
+                       reverse = T,
+                       sel$anc,
+                       bins=mycut)
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(sel)), function(i) {
+      paste0(  paste("Installation: " ,sel$ins[i]), '<br>', 
+               
+               paste("Surface     : ", sel$sup[i]), '<br>',
+               paste("Ancienneté  : " ,sel$anc[i]))
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+               # Tuiles
+               addTiles(group = "OSM ") %>%
+               addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
+               addProviderTiles('Esri.WorldImagery', group = "ESRI photo.") %>%
+              # Contrôle des tuiles
+               addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
+                                 position = "bottomright") %>%
+           setView(lat = 48.84, lng=2.33, zoom = 11) %>%
+              addPolygons(data = com,
+                          fillOpacity = 0.1,
+                          color="red",
+                          weight = 0.5) %>%
+               addPolygons(data = dep,
+                          fillOpacity = 0,
+                          color="red",
+                          weight = 2) %>%
+  
+             addCircleMarkers(data=sel,
+                              radius= ~myradius,       # diamètre
+                              stroke=TRUE,             # bordure   
+                              weight=1  ,              # épaisseur de la bordure
+                              color= "black",          # couleur de la bordure
+                              opacity = 0.7  ,         # opacité de la bordure 
+                              fillOpacity = 0.5,       # opacité du remplissage
+                              fillColor = ~mypal(anc), # couleur de remplissage
+                               popup = mypopups,       # Popup !
+                              )    %>%
+              addLegend(data = sel,
+                      pal = mypal, 
+                      title = "Ancienneté",
+                      values =~anc, 
+                      position = 'topright') 
+            
+                              
+
+map
+
+
+
+```
+
+
+### Sauvegarde du résultat
+
+on peut transformer le résultat en widget html pour réutilisation dans une page web
+
+```{r}
+saveWidget(map, "data/foot/map_foot.html",selfcontained = T)
+```
+
+
+
+
+
+
+
+
+
+
