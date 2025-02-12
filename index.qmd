@@ -15,7 +15,7 @@ R.Version()[["version.string"]]
 
 Ce document est régulièrement corrigé et mis à jour. La version de référence est disponible en ligne à l'adresse :
 
--   <https://worldregio.github.io/datamining2024/>.
+-   <https://worldregio.github.io/datamining2025/>.
 
 Pour toute suggestion ou correction, il est possible de me contacter [par mail](mailto:claude.grasland@parisgeo.cnrs.fr)
 

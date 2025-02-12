@@ -20,7 +20,7 @@ website:
             text: "Exercices"
     right: 
       - icon: github # add icons as navbar buttons
-        href: https://github.com/worldregio/theoregio
+        href: https://github.com/worldregio/datamining2025
         target: _blank
   page-footer:
     background: dark
