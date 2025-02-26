@@ -1,5 +1,5 @@
 ---
-title: "Jointures"
+title: "Préparation du travail"
 author: "Claude Grasland"
 format: html
 embed-resources: true
@@ -20,9 +20,6 @@ knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE, error=FALSE)
 ## Affichage de tableaux
 library(knitr)
 
-## Requêtes web
-library(jsonlite)
-
 ## Tidyverse & co
 library(tidyverse)
 
@@ -30,11 +27,8 @@ library(tidyverse)
 library(data.table)
 
 ## Information géographique
-library(geojsonsf)
 library(sf)
 
-## Cartographie thématique
-library(mapsf)
 ```
 
 ### Acquisistion du fichier INSEE individus 
@@ -47,28 +41,28 @@ Le programme ci-dessous comporte la mention "eval=FALSE" car il ne dout être ex
 ## Récupération des fichiers INSEE zippé
 ## On utilise pour cela un dossier "tmp" 
 download.file(url="https://www.insee.fr/fr/statistiques/fichier/6544333/RP2019_INDCVIZA_csv.zip",
-              destfile = "tmp/RP2019_INDCVIZA_csv.zip")
-unzip("tmp/RP2019_INDCVIZA_csv.zip", exdir = "tmp")
+              destfile = "ParisPC/tmp/RP2019_INDCVIZA_csv.zip")
+unzip("ParisPC/tmp/RP2019_INDCVIZA_csv.zip", exdir = "ParisPC/tmp")
 
 ## Lecture du fichier individu avec fread
 library(data.table)
-RP <- fread("tmp/FD_INDCVIZA_2019.csv", stringsAsFactors=TRUE)
+RP <- fread("ParisPC/tmp/FD_INDCVIZA_2019.csv", stringsAsFactors=TRUE)
 RP <- as.data.frame(RP)
 ## Selection Paris PC 
 RP <- RP %>% filter(DEPT %in% c(75, 92, 93, 94))
-saveRDS(RP, "data/RP/RP_final.RDS")
+saveRDS(RP, "ParisPC/data/indiv2019.RDS")
 
 ## Lecture du fichier de métadonnées
-meta <- read.csv(file = 'tmp/Varmod_INDCVI_2019.csv',
+meta <- read.csv(file = 'ParisPC/tmp/Varmod_INDCVI_2019.csv',
                  sep = ";",
                  encoding = "UTF-8",
                  stringsAsFactors = TRUE)
 
 ## Sauvegarde des deux fichiers
-saveRDS(meta, "data/RP/meta.RDS")
+saveRDS(meta, "ParisPC/data/meta.RDS")
 
 ## nettoyage du dossier  tmp
-unlink("tmp/*")
+unlink("ParisPC/tmp/*")
 ```
 
 ### Acquisition de la géométrie des IRIS
@@ -86,7 +80,9 @@ Comme précédemment, ce programme est à executer une seule fois d'où la menti
 myurl <-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-france-iris-millesime/exports/geojson?lang=fr&refine=year%3A%222019%22&refine=reg_name%3A%22%C3%8Ele-de-France%22&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FBerlin"
 
 ## téléchargement et conversion au format sf
-geo<-geojson_sf(myurl)
+geo<-st_read(myurl) 
+
+#Sélectione les variables
 geo<-geo %>% select(iris_type,
                     iris_code, 
                     iris_name,
@@ -96,19 +92,13 @@ geo<-geo %>% select(iris_type,
                     dep_name,
                     geometry)
 
-## Nettoyage des chaînes de caractère
-clean_char <- function(x) {
-  y<-gsub('\\[\"','',x)
-  y<-gsub('\"\\]','',y)
-  return(y)
-}
-geo <- geo %>% mutate(iris_code = clean_char(iris_code),
-                      iris_name = clean_char(iris_name),
-                      com_code = clean_char(com_code),
-                      com_name = clean_char(com_name),
-                      dep_code = clean_char(dep_code),
-                      dep_name = clean_char(dep_name),
-                      )
+# remplace les listes par des vecteurs
+geo <- geo %>% mutate(iris_code = as.character(iris_code),
+                      iris_name = as.character(iris_name),
+                      com_code = as.character(com_code),
+                      com_name =as.character(com_name),
+                      dep_code = as.character(dep_code),
+                      dep_name = as.character(dep_name))
 
 
 
@@ -118,7 +108,7 @@ geo<-geo %>% filter(dep_code %in% c("75","92","93","94"))
 
 ## Sauvegarde
 
-saveRDS(geo,"data/RP/map_iris.RDS" )
+saveRDS(geo,"ParisPC/geom/map_iris.RDS" )
 
 
 
@@ -126,7 +116,7 @@ saveRDS(geo,"data/RP/map_iris.RDS" )
 
 ```{r}
 ## Carto rapide
-map_iris <- readRDS("data/RP/map_iris.RDS")
+map_iris <- readRDS("ParisPC/geom/map_iris.RDS")
 plot(map_iris["dep_code"], main = "IRIS")
 ```
 
@@ -138,12 +128,12 @@ plot(map_iris["dep_code"], main = "IRIS")
 On agrège par le nom et le code de la commune et on conserve le nom et le code du département. 
 
 ```{r}
-map_iris <- readRDS("data/RP/map_iris.RDS")
+map_iris <- readRDS("ParisPC/geom/map_iris.RDS")
 map_com <- map_iris %>% group_by(com_code, com_name) %>% 
                   summarise(dep_code = max(dep_code),
                             dep_name = max(dep_name))
 plot(map_com["dep_code"], main = "Communes")
-saveRDS(map_com, "DATA/RP/map_com.RDS")
+saveRDS(map_com, "ParisPC/geom/map_com.RDS")
 ```
 
 ### Agrégation spatiale des iris en  département
@@ -151,40 +141,27 @@ saveRDS(map_com, "DATA/RP/map_com.RDS")
 On agrège simplement par le nom et le code du département.
 
 ```{r}
-map_iris <- readRDS("data/RP/map_iris.RDS")
+map_iris <- readRDS("ParisPC/geom/map_iris.RDS")
 map_dep <- map_iris %>% group_by(dep_code, dep_name) %>% 
                   summarise()
 plot(map_dep["dep_code"], main = "Départements")
-saveRDS(map_dep, "DATA/RP/map_dep.RDS")
+saveRDS(map_dep, "ParisPC/geom/map_dep.RDS")
 ```
 
 
 ### Agrégation des données RP par iris
 
 
-Nous allons maintenant examiner comment agréger les données individuelles de l'INSEE par iris, commune ou département et effectuer une jointure avec les fonds de cartes que nous avons préparé. On va s'appuyer pour cela sur le [cours de datamining n°2 de Camille Signoretto](https://camille-sisi.github.io/Data-Mining-2024/05-Questions-fouille-donnees.html).
+Nous allons maintenant examiner comment agréger les données individuelles de l'INSEE par iris, commune ou département et effectuer une jointure avec les fonds de cartes que nous avons préparé. On va s'appuyer pour cela sur le [cours de datamining n°1 de Camille Signoretto](https://camille-sisi.github.io/Data-Mining-2024/05-Questions-fouille-donnees.html).
 
 
-On commence par recharger la fonction `somme()`que nous avions créé : 
-
-```{r}
-somme <- function(data, var_gpe, nom_var){
-  som <- data %>% 
-    group_by({{var_gpe}}) %>% 
-    count({{nom_var}}, wt=IPONDI) %>% 
-    mutate(n=round(n)) %>% 
-    pivot_wider(names_from = {{nom_var}}, values_from = n)
-  
-  return(som)
-}
-```
 
 
 Nous l'utilisons pour créer un tableau des individus par CSP simplifiées en 5 catégories et par IRIS  :
 
 ```{r}
 # Chargement du tableau
-indiv <- readRDS("data/RP/RP_final.RDS")
+indiv <- readRDS("ParisPC/data/indiv2019.RDS")
 
 # Création de CSP simplifiées
 indiv <- indiv %>% 
@@ -195,9 +172,11 @@ indiv <- indiv %>%
                              TRUE ~ "DIV"))
 
 # Agrégation par IRIS  
-iris_csp <- somme(data = indiv,
-                 var_gpe = IRIS,
-                 nom_var = TACT5)
+tab_iris_csp  <- indiv %>% 
+                 group_by(IRIS, TACT5) %>% 
+                 summarise(n = sum(IPONDI)) %>% 
+                 mutate(n=round(n)) %>% 
+                 pivot_wider(names_from = TACT5, values_from = n)
              
 
 
@@ -210,9 +189,9 @@ iris_csp <- somme(data = indiv,
 On procède à la jointure des deux fichiers iris en utilisant le code des iris.
 
 ```{r}
-map_iris <- readRDS("data/RP/map_iris.RDS")
-map_iris_csp<- left_join(map_iris, iris_csp,by = c("iris_code"="IRIS"))
-saveRDS(map_iris_csp, "data/RP/map_iris_CSP.RDS")
+map_iris <- readRDS("ParisPC/geom/map_iris.RDS")
+map_iris_csp<- left_join(map_iris, tab_iris_csp,by = c("iris_code"="IRIS"))
+saveRDS(map_iris_csp, "ParisPC/geom/map_iris_CSP.RDS")
 ```
 
 
@@ -235,7 +214,7 @@ On reprend les programmes précédents par commune
 
 ```{r}
 # Chargement du tableau
-indiv <- readRDS("data/RP/RP_final.RDS")
+indiv <- readRDS("ParisPC/data/indiv2019.RDS")
 
 # Création de CSP simplifiées
 indiv <- indiv %>% 
@@ -243,24 +222,24 @@ indiv <- indiv %>%
                              TACT == "12" ~ "CHO",
                              TACT == "22" ~ "ETU",
                              TACT == "21" ~ "RET",
-                             TRUE ~ "DIV")) 
-
-# Extraction du code communal 
-indiv<- indiv %>%   mutate(com_code = substr(IRIS,1,5))
+                             TRUE ~ "DIV"))
 
 # Agrégation par IRIS  
-com_csp <- somme(data = indiv,
-                 var_gpe = com_code,
-                 nom_var = TACT5)
+tab_com_csp  <- indiv %>% 
+                 mutate(com_code = substr(IRIS,1,5))%>%
+                 group_by(com_code, TACT5) %>% 
+                 summarise(n = sum(IPONDI)) %>% 
+                 mutate(n=round(n)) %>% 
+                 pivot_wider(names_from = TACT5, values_from = n)
 
 # Chargement du fonds de carte communal
-map_com <- readRDS("data/RP/map_com.RDS")
+map_com <- readRDS("ParisPC/geom/map_com.RDS")
 
 # Jointure
-map_com_csp <- left_join(map_com, com_csp)
+map_com_csp <- left_join(map_com, tab_com_csp)
 
 # Sauvegarde
-saveRDS(map_com_csp, "data/RP/map_com_csp.RDS")
+saveRDS(map_com_csp, "ParisPC/geom/map_com_csp.RDS")
 
 # Analyse des valeurs manquantes
 map_com_csp$missing<-case_when(is.na(map_com_csp$CHO)  ~ "Manquant",

@@ -20,8 +20,10 @@ website:
             text: "Exercices"
       - text: "Cartographie"
         menu:
-          - href: 20-CARTO-sf.qmd
-            text: "Le package sf"
+          - href: 21-CARTO-ParisPC.qmd
+            text: "Préparation avec sf"
+          - href: 22-CARTO-mapsf.qmd
+            text: "Cartographie statique"            
     right: 
       - icon: github # add icons as navbar buttons
         href: https://github.com/worldregio/datamining2025
