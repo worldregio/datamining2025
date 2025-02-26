@@ -18,6 +18,10 @@ website:
             text: "Importation geojson"
           - href: 13-API-Exercices.qmd
             text: "Exercices"
+      - text: "Cartographie"
+        menu:
+          - href: 20-CARTO-sf.qmd
+            text: "Le package sf"
     right: 
       - icon: github # add icons as navbar buttons
         href: https://github.com/worldregio/datamining2025
