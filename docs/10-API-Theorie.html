@@ -4706,7 +4706,7 @@ vertical-align: -.125em;
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ovni</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Response [http://api.open-notify.org/astros.json]
-  Date: 2025-02-26 15:59
+  Date: 2025-02-26 17:45
   Status: 200
   Content-Type: application/json
   Size: 587 B</code></pre>
@@ -4727,7 +4727,7 @@ vertical-align: -.125em;
  $ status_code: int 200
  $ headers    :List of 6
   ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  ..$ date                       : chr &quot;Wed, 26 Feb 2025 15:59:06 GMT&quot;
+  ..$ date                       : chr &quot;Wed, 26 Feb 2025 17:45:27 GMT&quot;
   ..$ content-type               : chr &quot;application/json&quot;
   ..$ content-length             : chr &quot;587&quot;
   ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4739,7 +4739,7 @@ vertical-align: -.125em;
   .. ..$ version: chr &quot;HTTP/1.1&quot;
   .. ..$ headers:List of 6
   .. .. ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  .. .. ..$ date                       : chr &quot;Wed, 26 Feb 2025 15:59:06 GMT&quot;
+  .. .. ..$ date                       : chr &quot;Wed, 26 Feb 2025 17:45:27 GMT&quot;
   .. .. ..$ content-type               : chr &quot;application/json&quot;
   .. .. ..$ content-length             : chr &quot;587&quot;
   .. .. ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4754,8 +4754,8 @@ vertical-align: -.125em;
   ..$ name      : logi(0) 
   ..$ value     : logi(0) 
  $ content    : raw [1:587] 7b 22 70 65 ...
- $ date       : POSIXct[1:1], format: &quot;2025-02-26 15:59:06&quot;
- $ times      : Named num [1:6] 0 0.0491 0.198 0.1981 0.348 ...
+ $ date       : POSIXct[1:1], format: &quot;2025-02-26 17:45:27&quot;
+ $ times      : Named num [1:6] 0 0.0498 0.2006 0.201 0.3539 ...
   ..- attr(*, &quot;names&quot;)= chr [1:6] &quot;redirect&quot; &quot;namelookup&quot; &quot;connect&quot; &quot;pretransfer&quot; ...
  $ request    :List of 7
   ..$ method    : chr &quot;GET&quot;
@@ -4782,11 +4782,11 @@ vertical-align: -.125em;
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ovni<span class="sc">$</span>headers<span class="sc">$</span>date</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Wed, 26 Feb 2025 15:59:06 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Wed, 26 Feb 2025 17:45:27 GMT&quot;</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>ovni[[<span class="st">&quot;headers&quot;</span>]][[<span class="st">&quot;date&quot;</span>]]</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Wed, 26 Feb 2025 15:59:06 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Wed, 26 Feb 2025 17:45:27 GMT&quot;</code></pre>
 </div>
 </div>
 <p>On peut également afficher les noms des branches en partant de la racine puis en suivant l’arbre à l’aide de l’instruction <code>names()</code></p>
@@ -4991,18 +4991,18 @@ vertical-align: -.125em;
 <span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_ISS2</span>()</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>      craft                 name                          date
-1       ISS       Oleg Kononenko Wed, 26 Feb 2025 15:59:06 GMT
-2       ISS         Nikolai Chub Wed, 26 Feb 2025 15:59:06 GMT
-3       ISS Tracy Caldwell Dyson Wed, 26 Feb 2025 15:59:06 GMT
-4       ISS     Matthew Dominick Wed, 26 Feb 2025 15:59:06 GMT
-5       ISS      Michael Barratt Wed, 26 Feb 2025 15:59:06 GMT
-6       ISS        Jeanette Epps Wed, 26 Feb 2025 15:59:06 GMT
-7       ISS  Alexander Grebenkin Wed, 26 Feb 2025 15:59:06 GMT
-8       ISS        Butch Wilmore Wed, 26 Feb 2025 15:59:06 GMT
-9       ISS      Sunita Williams Wed, 26 Feb 2025 15:59:06 GMT
-10 Tiangong           Li Guangsu Wed, 26 Feb 2025 15:59:06 GMT
-11 Tiangong              Li Cong Wed, 26 Feb 2025 15:59:06 GMT
-12 Tiangong           Ye Guangfu Wed, 26 Feb 2025 15:59:06 GMT</code></pre>
+1       ISS       Oleg Kononenko Wed, 26 Feb 2025 17:45:27 GMT
+2       ISS         Nikolai Chub Wed, 26 Feb 2025 17:45:27 GMT
+3       ISS Tracy Caldwell Dyson Wed, 26 Feb 2025 17:45:27 GMT
+4       ISS     Matthew Dominick Wed, 26 Feb 2025 17:45:27 GMT
+5       ISS      Michael Barratt Wed, 26 Feb 2025 17:45:27 GMT
+6       ISS        Jeanette Epps Wed, 26 Feb 2025 17:45:27 GMT
+7       ISS  Alexander Grebenkin Wed, 26 Feb 2025 17:45:27 GMT
+8       ISS        Butch Wilmore Wed, 26 Feb 2025 17:45:27 GMT
+9       ISS      Sunita Williams Wed, 26 Feb 2025 17:45:27 GMT
+10 Tiangong           Li Guangsu Wed, 26 Feb 2025 17:45:27 GMT
+11 Tiangong              Li Cong Wed, 26 Feb 2025 17:45:27 GMT
+12 Tiangong           Ye Guangfu Wed, 26 Feb 2025 17:45:27 GMT</code></pre>
 </div>
 </div>
 <p>Et si on est à l’aise avec les listes, on peut aussi exporter les résultats sous la forme d’une liste plutôt que d’un tableau, ce qui évite de répéter plusieurs fois la date d’extraction des données</p>
@@ -5024,7 +5024,7 @@ vertical-align: -.125em;
 <span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(x<span class="sc">$</span>Data, <span class="at">caption=</span><span class="fu">paste</span>(<span class="st">&quot;Passagers de l&#39;ISS :&quot;</span>, x<span class="sc">$</span>Update))</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="table table-sm table-striped small">
-<caption>Passagers de l’ISS : Wed, 26 Feb 2025 15:59:06 GMT</caption>
+<caption>Passagers de l’ISS : Wed, 26 Feb 2025 17:45:28 GMT</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;">craft</th>

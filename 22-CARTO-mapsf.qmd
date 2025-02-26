@@ -6,6 +6,10 @@ embed-resources: true
 ---
 
 
+Télécharger le [dossier projet exos2](https://github.com/worldregio/datamining2025/raw/main/exos/exo2.zip) pour suivre et executer les commandes.
+
+
+
 ```{r  include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
