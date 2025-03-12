@@ -1,0 +1,776 @@
+---
+title: "Cartographie dynamique avec leaflet"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  echo=TRUE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="80")
+opts_chunk$set(echo=TRUE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=FALSE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               options(scipen=999))
+opts_knit$set(width=75)
+
+# Packages utilitaires
+library(dplyr)
+library(rmdformats)
+
+# Packages graphiques
+library(ggplot2)
+library(RColorBrewer)
+
+#packages cartographiques 
+library(sf)
+library(leaflet)
+library(htmlwidgets)
+library(htmltools)
+
+# Appel d'API
+library(httr)
+library(jsonlite)
+library(geojsonsf)
+
+```
+
+
+
+## Premiers pas
+
+
+Ce cours propose de fournir les bases élémentaires du logiciel Leaflet. 
+
+::: {.callout-tip}
+## Sources
+Ce cours est très largement inspiré d'un article d'Elena Salette publié sur l'excellent site de formation ThinkR et intitulé [Cartographie interactive : comment visualiser mes données spatiales de manière dynamique avec leaflet ?](https://thinkr.fr/cartographie-interactive-comment-visualiser-mes-donnees-spatiales-de-maniere-dynamique-avec-leaflet/) 
+:::
+
+
+Notre premier objectif très limité sera de construire une carte interactive utilisant le fonds de carte OpenStreetMap que l'on pourra zoomer en avant ou en arrière. La carte comportera la localisation de la place de la gare à Sucy-en-Brie avec une "épingle" de localisation comportant une photographie de la gare et un petit texte de promotion de celle-ci. 
+
+### Lancement avec `leaflet()`
+
+Nous allons avoir besoin des packages suivants :
+
+- `leaflet` puisque c'est l'objet même du cours !
+- `dplyr` afin de pouvoir construire des programmes utilisant des pipes `%>%`
+- `sf` pour charger des fonds de carte de différents types (points, lignes polygones)
+- `htmltools` et `htmlwidgets` pour ajouter des popups interactifs sur notre carte
+
+Pour vérifier que le package leaflet est bien installé, nous créons une première carte (vide !)
+
+```{r}
+map <- leaflet()
+
+map
+```
+
+Et il n'y a ... RIEN ! si ce n'est un bouton de zoom
+
+
+### Remplissage avec `addTiles()`
+
+On ajoute sur ce fond de carte vide des "tuiles" cartographiques qui sont des images se modifiant selon l'échelle pour apporter plus ou moins de détails. Par défaut, le fonds de carte de référence est le fonds `OpenStreetMap`
+
+```{r}
+library(leaflet)
+
+map <- leaflet() %>%
+          addTiles()
+
+map
+```
+La carte est désormais interactive et on peut effectuer des zooms ou se déplacer.
+
+
+
+
+### Calage avec `setView()`
+
+Nous allons ensuite choisir un point de référence, par exemple la place de la gare à Sucy-en-Brie. Pour trouver les coordonnées de latitude et longitude, la solution la plus simple est d'utiliser [Google Maps](https://www.google.fr/maps) puis de zoomer sur la zone d'étude et enfin d'**effectuer un click droit avec la souris sur le point dont on cherche les coordonnées** pour obtenir dans un popup les coordonnées recherchées : 
+
+![coordonnnées de la place de la gare de Sucy](img/gare_sucy_coord_googlemap.png)
+On peut alors procéder à une double opération de **centrage** de notre carte et de définition d'une **échelle d'observation** afin que la carte produite par `leaflet`couvre bien la zone qui nous intéresse. Cette double opération est réalisée à l'aide de la fonction `setView()` assortie des trois paramètre suivants :
+
+- `lng =` pour la longitude
+- `lat =` pour la latitude
+- `zoom =` pour le degré d'aggrandissement de la carte de 1 pour le Monde entier à 20 pour une vision ulra locale
+
+
+```{r}
+map <- leaflet() %>% 
+          addTiles() %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 17)
+
+map
+```
+
+Une fois qu'on a vérifié le centrage avec un zoom fort (ici 17), on peut refaire la carte en utilisant un zoom plus faible, par exemple un zoom de 12 permettant de visualiser toute la commune de Sucy et les communes voisines.
+
+```{r}
+map <- leaflet() %>% 
+          addTiles() %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 12)
+
+map
+```
+
+### Personalisation avec  `addProviderTiles()`
+
+Les tuiles OpenStreetMap qui servent de fonds de carte par défaut peuvent être remplacés par des tuiles personalisées fournies par des producteurs publics ou privés. On peut obtenir la liste des tuiles disponibles en tapant `providers` dans la console de R studio et les tester une par une. Mais il est souvent plus simple et plus rapide d'aller visualiser les tuiles disponibles sur [ce site web](http://leaflet-extras.github.io/leaflet-providers/preview/) où l'on peut centrer le monde sur sa zone d'étude et voir ce que donnent les différentes familles de tuiles. 
+
+A titre d'exemple, les tuiles `OpenTopoMap` permettent de voir la carte topographique de type IGN en couleur :
+
+
+```{r}
+map <- leaflet() %>% 
+            addProviderTiles('OpenTopoMap') %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 12)
+
+map
+
+```
+
+La couche `Esri.WorldTopoMap` fournit également une imagerie précise mais de couleurs plus neutre que les tuiles `OpenTopoMap` ou OpenStreetMap , ce qui sera intéressant si on superspose des marqueurs de couleur vive. 
+
+
+```{r}
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+          setView(lat = 48.77141, lng=2.50870, zoom = 12)
+map
+
+```
+
+
+
+### Affichage d'un point avec `addMarkers()`
+
+L'usage le plus fréquent de `leaflet`consiste à ajouter des éléments de localisation ponctuelle appelés `markers`et de rendre ces objets ponctuels interactifs avec l'ouverture de fenêtres `popups`lorsqu'on clique dessus avec la souris. On va donc voir pas à pas comment construire de telles cartes interactives en partant du cas le plus simple (marqueur unique) pour aller vers les cas plus complexes (ensemble de marqueurs de taille, couleur et formes différentes).
+
+Nous allons commencer par indiquer l'emplacement de la place de la gare de Sucy-en-Brie sur notre carte précédente à l'aide de la fonction `addMarkers()` : 
+
+```{r}
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.77141, lng=2.50870, zoom = 12) %>% 
+            addMarkers(lat = 48.77141, lng=2.50870)
+map
+```
+On constate que le marqueur donne bien la position choisi mais n'est pas interactif. Il faut ajouter plus de paramètres pour assurer l'interactivité. 
+
+### Ajout d'un `label`ou d'un `popup`
+
+On peut définir deux comportements d'un marker selon que la souris ne fait que passer dessus (`label`) ou selon que l'utilisateur effectue un click sur marker et déclenche l'ouverture d'une fenêtre (`popup`). Dans sa version la plus simple, l'interactivité consiste à ajouter une chaîne de caractère à ces deux paramètres. 
+
+```{r}
+icone_gare <-makeIcon(iconUrl = "img/gare.png")
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.77141, lng=2.50870, zoom = 12) %>% 
+            addMarkers(lat = 48.77141, lng=2.50870,
+                      # En passant la souris
+                      label = "GARE DE SUCY-BONNEUIL", 
+                      # En cliquant sur l'icone
+                       popup = "La gare RER A de Sucy Bonneuil est bien reliée aux communes 
+                                 environnantes par un réseau de bus partant dans toutes les directions")
+map
+```
+
+
+### Amélioration du `popup`
+
+Mais on peut faire beaucoup mieux, notamment pour la fenêtre `popup`qui peut prendre la forme d'une mini-page web dont on fixe le contenu en html avec la fonction `paste0()` et les dimensions avec le sous-paramètre `popupOptions()`. 
+
+
+```{r}
+
+
+# Préparation de la fenêtre Popup
+    my_popup = paste0(
+      "<b> LA GARE DE SUCY",
+      "</b><br/><img src=https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Gare_Sucy-en-Brie.jpg/1200px-Gare_Sucy-en-Brie.jpg width='200px'><br/>",
+      "La gare RER A de Sucy Bonneuil est bien reliée aux communes environnantes par un réseau de bus partant dans toutes les directions.")
+
+
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+            setView(lat = 48.77141, lng=2.50870, zoom = 12) %>% 
+            addMarkers(lat = 48.77141, lng=2.50870,
+                      # En passant la souris
+                      label = "GARE DE SUCY-BONNEUIL", 
+                      # En cliquant sur l'icone
+                       popup = my_popup, 
+                      # Quelques options de la popup
+                        popupOptions = 
+                      list(maxHeight = 350, maxWidth = 200))
+map
+
+```
+
+
+### Prolongements
+
+Et voila, le tour est joué. Il faut maintenant réfléchir à la façon de construire une carte comportant un ensemble d'épingles similaires avec des couleurs ou des formes différentes, des messages différents, des photographies variées ... Il ne sera alors évidemment pas possible d'ajouter une commande addMarkers() pour chaque épingle si la carte en comporte des centaines. 
+
+Si vous avez bien compris ce cours, vous pourrez trouver des réponses en lisant de façon autonome le reste de l'article dont nous nous somme inspiré : [Cartographie interactive : comment visualiser mes données spatiales de manière dynamique avec leaflet ?](https://thinkr.fr/cartographie-interactive-comment-visualiser-mes-donnees-spatiales-de-maniere-dynamique-avec-leaflet/) 
+
+## Preparation des données
+
+Nous allons réviser ici une certain nombre de notions vus dans les cours précédents sur l'utilisation des API et la cartographie statique. On suppose que l'on veut étudier **la distribution des restaurants à l'intérieur des différents quartiers de la commune de Grenoble*.**
+
+### Données ponctuelles sur les restaurants
+
+ On choisit  d'utiliser la base SIRENE qui enregistre toutes les entreprises françaises. Grâce à la version géocodée accessible sur public.opendatasoft, on va pouvoir télécharger un fichier au format **sf** spatial features.On télécharge l'ensemble des entreprises de restaurations de Grenoble recensés dans le fichier SIRENE. 
+
+```{r}
+myurl <- "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/economicref-france-sirene-v3/exports/geojson?lang=fr&refine=libellecommuneetablissement%3A%22GRENOBLE%22&refine=soussectionetablissement%3A%22Restauration%22&facet=facet(name%3D%22libellecommuneetablissement%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22soussectionetablissement%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FBerlin"
+
+mymap<-st_read(myurl) 
+dim(mymap)
+class(mymap)
+```
+
+Le tableau comporte 4439 entreprises décrites par 108 variables. On trouvera la description précise de ces dernières sur le [site de documentation de la base SIRENE](https://www.sirene.fr/static-resources/documentation/v_sommaire_311.htm#33)E
+
+
+On décide de sélectionner les entreprises  qui font de la restauration traditionelle (code 56.10A) ou de la restauration rapide (code 56.10B) et de ne pas conserver les autres entreprises du secteur (débits de boisson, restauration collective).
+
+```{r}
+restau<- mymap %>% filter(activiteprincipaleetablissement %in% c("56.10A","56.10C"),
+                          etatadministratifetablissement == "Actif")
+dim(restau)
+
+```
+
+Il reste donc 1503 entreprises pour lesquelles on va sélectionner un nombre limité de variables et leur donner des noms plus courts que ceux présents dans la base.
+
+
+```{r}
+
+
+mapresto <-  restau %>% select(siren, 
+                             siret,
+                             type = classeetablissement,
+                             date_creation = datecreationetablissement) %>%
+                 mutate(age = as.numeric(as.Date("2025-04-01")-date_creation)/365,
+                        type = as.factor(type))
+summary(mapresto)
+
+```
+
+On examine les deux variables type et age en procédant à quelques corrections.
+
+On corrige le nom des niveaux de la variable type
+
+```{r}
+levels(mapresto$type) <- c("Rapide","Traditionnel")
+plot(mapresto$type)
+```
+
+On examine la distribution de la variable âge
+
+```{r}
+hist(mapresto$age)
+```
+
+On décide de limiter l'âge maximum à 50 ans
+
+
+```{r}
+mapresto$age <-ifelse(mapresto$age > 20, 20, mapresto$age)
+hist(mapresto$age)
+```
+
+On remarque que les restaurants de type rapide sont plus récents que les traditionnels
+
+
+```{r}
+boxplot(mapresto$age~mapresto$type, horizontal = T)
+t.test(mapresto$age~mapresto$type)
+```
+
+
+
+On peut visualiser la position des restaurants avec sf
+
+
+```{r}
+par(mar=c(0,0,0,0))
+plot(mapresto$geometry,cex=0.5, pch=20,bg = "lightyellow", col="red")
+```
+
+On peut même visualiser le type de restaurant :
+
+```{r}
+par(mar=c(0,0,0,0))
+plot(mapresto$geometry,
+     cex=0.5, 
+     pch=20,
+     bg = "lightyellow", 
+     col=mapresto$type)
+```
+
+Voire ajouter l'ancienneté en prenant la racine carré de l'âge comme surface
+
+```{r}
+par(mar=c(0,0,0,0))
+plot(mapresto$geometry,
+     cex=sqrt(mapresto$age)/4,
+     pch=20,
+     bg = "lightyellow", 
+     col=mapresto$type)
+```
+
+
+La carte s'affiche mais on ne sait pas trop bien où l'on est ...  On  sauvegarde le résultat.
+
+```{r}
+saveRDS(mapresto, "data/map_resto_grenoble.RDS")
+```
+
+
+
+### Données aréales
+
+On souhaite visualiser les quartiers de Grenoble.
+
+Tant qu'à faire, on importe un fonds de carte des IRIS donnant quelques indications sociales sur la richesse ou la pauvreté des habitants. On va utiliser pour cela une base concernant l'[indice de défavorisation sociale par IRIS](https://public.opendatasoft.com/explore/dataset/indice-de-defavorisation-sociale-fdep-par-iris/information/)en 2014, accessible sur Public.opendatasoft
+
+
+```{r}
+myurl<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22GRENOBLE%22&timezone=Europe%2FBerlin"
+mapiris<-st_read(myurl)
+```
+
+
+On peut facilement visualiser une carte du revenu médian par IRIS avec sf
+
+```{r}
+plot(mapiris["t1_rev_med"])
+```
+
+On sauvegarde le fonds des IRIS pour pouvoir l'utiliser ensuite.
+
+```{r}
+saveRDS(mapiris, "data/map_iris_grenoble.RDS")
+```
+
+
+
+### Cartographie statique
+
+
+Si vous avez bien retenu les cours précédents, il ets assez simple de superposer la couche des IRIS et celle des restaurants à l'aide du logiciel mapsf. Voici une solution minimale:
+
+
+```{r}
+library(mapsf)
+mapiris<-readRDS("data/map_iris_grenoble.RDS")
+mapresto<-readRDS("data/map_resto_grenoble.RDS")
+
+mf_map(mapiris, type="choro", var= "t1_rev_med")
+mf_map(mapresto, type="typo", var="type", pch=20, cex=0.5, add=T)
+mf_layout("Revenu par quartier et types de restaurant à Grenoble")
+```
+
+La carte n'est toutefois pas très satisfaisante car le fonds est non projeté (EPSG = 4326) et l'échelle est absurde. Il faut utiliser la projection française (EPS=2154) pour obtenir un résultat correct. 
+
+Voici la carte corrigée et améliorée en y ajoutant l'ancienneté et le type des restaurants.
+
+```{r}
+library(mapsf)
+mapiris<-readRDS("data/map_iris_grenoble.RDS") %>% st_transform(2154)
+mapresto<-readRDS("data/map_resto_grenoble.RDS") %>% st_transform(2154)
+
+mf_theme("agolalight")
+mf_map(mapiris, type="choro", 
+       var= "t1_rev_med",
+       pal="Grays",
+       leg_title = "Revenu médian 2014",
+       leg_val_rnd = 0)
+mf_map(mapresto, type="prop_typo", 
+       var=c("age","type"), 
+       pal=c("lightblue","pink"),
+       inches=0.03,
+       leg_title = c("Ancienneté du restaurant","Type du restaurant"),
+       add=T)
+mf_layout(title = "Revenu par quartier et types de restaurant à Grenoble",
+          credits = "Source : SIRENE 2024 et Indice de défavorisation sociale 2014",
+          frame=T)
+```
+
+
+
+## Cartographie de points
+
+
+### Importation des données
+
+Nous récupérons les données sur les restaurants et les quartiers de Grenoble qui ont été éalborées au cours de l'exercice précédent
+
+```{r}
+resto<-readRDS("data/map_resto_grenoble.RDS")
+iris <-readRDS("data/map_iris_grenoble.RDS")
+```
+
+Nous vérifions que la projection est bien de type WGS 84 (code EPSG = 4326)
+
+```{r}
+st_crs(resto)
+st_crs(iris)
+```
+
+Si ce n'est pas le cas, on execute le programme suivant qui change la projection à l'aide de la fonction `st_transform()` du package **sf**
+
+```{r}
+resto <- sf::st_transform(resto, crs = 4326)
+iris <- sf::st_transform(iris, crs = 4326)
+```
+
+
+
+
+### Cartographie des localisations
+
+On commence par créer une carte des restaurants avec AddCircleMarkers()
+
+
+```{r}
+
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+             addCircleMarkers(data=resto)
+
+map
+```
+
+
+
+
+### Taille des cercles : variable de stock
+
+On règle la taille des cercles en fonction de l'ancienneté des restaurants. On décide que la taille minimale sera de 2 pixel et la taille maximale de 6 pixels
+
+
+```{r}
+# Calcul du diamètre des cercles
+  resto$myradius <-2 + 4*sqrt(resto$age/max(resto$age,na.rm=T))
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+  
+             addCircleMarkers(data=resto,
+                              radius= ~myradius,    # diamètre
+                              stroke=FALSE,         # pas de bordure           
+                              fillOpacity = 0.5)    # opacité 
+            
+                              
+
+map
+```
+
+
+
+### Couleur des cercles : attribut quantitatif
+
+On peut considérer l'âge non pas comme un *stock* (nombre d'années d'existence) mais comme un *attribut quantitatif* mesurant la situation d'ancienneté. Dans ce cas la variation de taille n'est pas indiquée et il est plus logique de jouer sur le remplissage des cercles.
+
+Dans le cas d'une variable quantitative on définit des classes à l'aide de la fonction `colorBin()`
+
+
+```{r}
+
+# Choix des classes 
+    mycut<-c(0, 1, 2, 4, 8, 16, 25)
+    
+# Choix de la palette (c'est une fonction !)
+   mypal <- colorBin('Spectral', 
+                       reverse = T,
+                       resto$age,
+                       bins=mycut)
+    
+
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+  
+             addCircleMarkers(data=resto,
+                              radius= 5 ,    # diamètre fixe
+                              stroke=TRUE,          # bordure   
+                              weight=1  ,           # épaisseur de la bordure
+                              color= "black",      # couleur de la bordure
+                              opacity = 0.7  ,       # opacité de la bordure 
+                              fillOpacity = 0.5,    # opacité 
+                              fillColor = ~mypal(age)
+                              )    %>%
+              addLegend(data = resto,
+                      pal = mypal, 
+                      title = "Age du restaurant",
+                      values =~age, 
+                      position = 'topright') 
+            
+                              
+
+map
+```
+
+
+
+### Couleur des cercles : variables qualitatives
+
+On peut utiliser la couleur des cercles également dans le cas d'une variable qualitative (factor) on définit la couleur par la fonction `colorFactor()`
+
+
+```{r}
+levels(resto$type)
+
+# Choix des classes 
+mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+    
+
+  
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+  
+             addCircleMarkers(data=resto,
+                              radius= 5 ,    # diamètre fixe
+                              stroke=TRUE,          # bordure   
+                              weight=1  ,           # épaisseur de la bordure
+                              color= "black",      # couleur de la bordure
+                              opacity = 0.7  ,       # opacité de la bordure 
+                              fillOpacity = 0.5,    # opacité 
+                              fillColor = ~mypal(type)
+                              )    %>%
+              addLegend(data = resto,
+                      pal = mypal, 
+                      title = "Type de restaurant",
+                      values =~type, 
+                      position = 'topright') 
+            
+                              
+
+map
+```
+
+
+
+
+### Ajout d'un popup d'information
+
+On peut rajouter un popup pour afficher des informations détaillées sur chaque restaurant 
+
+
+```{r}
+# Choix des classes 
+mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+    
+
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(resto)), function(i) {
+      paste0(  paste("n° SIREN          : "      ,resto$siren[i]), '<br>', 
+               paste("n° SIRET          : "      ,resto$siret[i]), '<br>', 
+               paste("Date de création : ", as.character(resto$date_creation[i])), '<br>',
+               paste("Ancienneté  : " ,round(resto$age[i])), " ans", '<br>',
+               paste("Type de restauration : ", resto$type[i])              
+               )
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+
+# Réalisation de la carte
+map <- leaflet() %>% 
+            addProviderTiles('Esri.WorldTopoMap') %>%
+  
+             addCircleMarkers(data=resto,
+                              radius= 5 ,               # diamètre fixe
+                              stroke=TRUE,              # bordure   
+                              weight=1  ,               # épaisseur de la bordure
+                              color= "black",           # couleur de la bordure
+                              opacity = 0.7  ,          # opacité de la bordure 
+                              fillOpacity = 0.5,        # opacité 
+                              fillColor = ~mypal(type), # culeur selon le type
+                              popup = mypopups          # Mon popup
+                              
+                              
+                              )    %>%
+              addLegend(data = resto,
+                      pal = mypal, 
+                      title = "Type de restaurant",
+                      values =~type, 
+                      position = 'topright') 
+            
+                              
+
+map
+   
+```
+
+### Choix des tuiles
+
+On fait varier les tuiles pour offrir la possibilité de visualiser la position des maisons sur un plan ou sur une photo aérienne.
+
+```{r}
+
+# Choix des classes 
+mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+    
+
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(resto)), function(i) {
+      paste0(  paste("n° SIREN          : "      ,resto$siren[i]), '<br>', 
+               paste("n° SIRET          : "      ,resto$siret[i]), '<br>', 
+               paste("Date de création : ", as.character(resto$date_creation[i])), '<br>',
+               paste("Ancienneté  : " ,round(resto$age[i])), " ans", '<br>',
+               paste("Type de restauration : ", resto$type[i])              
+               )
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+
+# Réalisation de la carte
+map <- leaflet() %>% 
+  
+               # Tuiles
+               addTiles(group = "OSM ") %>%
+               addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
+               addProviderTiles('Esri.WorldImagery', group = "ESRI photo.") %>%
+  
+              # Contrôle des tuiles
+               addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
+                                 position = "bottomright") %>%
+  
+              # Carte des restaurants
+             addCircleMarkers(data=resto,
+                              radius= 5 ,               # diamètre fixe
+                              stroke=TRUE,              # bordure   
+                              weight=1  ,               # épaisseur de la bordure
+                              color= "black",           # couleur de la bordure
+                              opacity = 0.7  ,          # opacité de la bordure 
+                              fillOpacity = 0.5,        # opacité 
+                              fillColor = ~mypal(type), # culeur selon le type
+                              popup = mypopups          # Mon popup
+                              
+                              
+                              )    %>%
+              # Légende de la carte des restaurants
+              addLegend(data = resto,
+                      pal = mypal, 
+                      title = "Type de restaurant",
+                      values =~type, 
+                      position = 'topright') 
+            
+                              
+
+map
+
+
+
+
+```
+
+### Ajout d'une couche de polygones
+
+On décide d'ajouter une couche de polygones relatives aux quartiers de Grenoble et une fonction label permettant d'afficher le nom du quartier quand la souris passe dessus
+
+```{r}
+
+
+# Choix des classes 
+mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+    
+
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(resto)), function(i) {
+      paste0(  paste("n° SIREN          : "      ,resto$siren[i]), '<br>', 
+               paste("n° SIRET          : "      ,resto$siret[i]), '<br>', 
+               paste("Date de création : ", as.character(resto$date_creation[i])), '<br>',
+               paste("Ancienneté  : " ,round(resto$age[i])), " ans", '<br>',
+               paste("Type de restauration : ", resto$type[i])              
+               )
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+
+# Réalisation de la carte
+map <- leaflet() %>% 
+  
+               # Tuiles
+               addTiles(group = "OSM ") %>%
+               addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
+               addProviderTiles('Esri.WorldImagery', group = "ESRI photo.") %>%
+  
+              # Contrôle des tuiles
+               addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
+                                 position = "bottomright") %>%
+              
+              # Carte des iris avec label 
+            addPolygons(data = iris,
+                          fillOpacity = 0.4,
+                          label = ~c_nom_iris,
+                          color="black",
+                          fillColor = "lightyellow",
+                          weight = 1) %>%
+  
+              # Carte des restaurants
+             addCircleMarkers(data=resto,
+                              radius= 5 ,               # diamètre fixe
+                              stroke=TRUE,              # bordure   
+                              weight=1  ,               # épaisseur de la bordure
+                              color= "black",           # couleur de la bordure
+                              opacity = 0.7  ,          # opacité de la bordure 
+                              fillOpacity = 0.5,        # opacité 
+                              fillColor = ~mypal(type), # culeur selon le type
+                              popup = mypopups          # Mon popup
+                              
+                              
+                              )    %>%
+              # Légende de la carte des restaurants
+              addLegend(data = resto,
+                      pal = mypal, 
+                      title = "Type de restaurant",
+                      values =~type, 
+                      position = 'topright') 
+            
+                              
+
+map
+
+
+
+
+```
+
+
+### Sauvegarde du résultat
+
+on peut transformer le résultat en widget html pour réutilisation dans une page web
+
+```{r}
+saveWidget(map, "img/map_restau.html",selfcontained = T)
+```
+
+
+
+

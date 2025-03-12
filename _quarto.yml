@@ -23,7 +23,9 @@ website:
           - href: 21-CARTO-ParisPC.qmd
             text: "Préparation avec sf"
           - href: 22-CARTO-mapsf.qmd
-            text: "Cartographie statique"            
+            text: "Cartographie statique"    
+          - href: 23-CARTO-leaflet.qmd
+            text: "Cartographie dynamique"   
     right: 
       - icon: github # add icons as navbar buttons
         href: https://github.com/worldregio/datamining2025
