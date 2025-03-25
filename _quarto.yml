@@ -25,7 +25,11 @@ website:
           - href: 22-CARTO-mapsf.qmd
             text: "Cartographie statique"    
           - href: 23-CARTO-leaflet.qmd
-            text: "Cartographie dynamique"   
+            text: "Cartographie dynamique" 
+      - text: "Projet JOCAS"
+        menu:
+          - href: 31-JOCAS1-Exploration.qmd
+            text: "Préparation de la base "
     right: 
       - icon: github # add icons as navbar buttons
         href: https://github.com/worldregio/datamining2025
