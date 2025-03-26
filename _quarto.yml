@@ -29,7 +29,9 @@ website:
       - text: "Projet JOCAS"
         menu:
           - href: 31-JOCAS-preparation.qmd
-            text: "Préparation de la base "
+            text: "Préparation"
+          - href: 32-JOCAS-agregation.qmd
+            text: "Agregation"
     right: 
       - icon: github # add icons as navbar buttons
         href: https://github.com/worldregio/datamining2025

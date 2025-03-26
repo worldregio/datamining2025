@@ -1,0 +1,372 @@
+---
+title: Agrégation de la base JOCAS"
+author: "Claude Grasland"
+format: html
+embed-resources: true
+---
+
+
+```{r  echo=TRUE, cache=FALSE, warning=FALSE}
+library(knitr)
+## Global options
+options(max.print="80")
+opts_chunk$set(echo=TRUE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=FALSE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               options(scipen=999))
+opts_knit$set(width=75)
+
+# Packages utilitaires
+library(dplyr)
+library(tidyr)
+library(data.table)
+
+# Packages graphiques
+library(ggplot2)
+
+#packages cartographiques 
+library(sf)
+library(mapsf)
+library(RColorBrewer)
+
+
+
+```
+
+
+
+
+Lorsque l'on travaille sur de très grands tableaux de données, il est indispensable d'effectuer des pré-traitements permettant de simplifier les données en fonction des objectifs de l'analyse.
+
+Cela passe généralement par des fonctions d'**agrégation** qui produisent des tableaux plus petits issus de la base principale. ces tableaux agrégés permettront d'accélérer considérablement la production d'ensembles de tableaux, cartes ou graphiques à l'aide de **fonctions**.
+
+
+## Préparation des données
+
+### Chargement des fichiers
+
+On commence par charger les données nettoyées au cours de l'étape précédente et les métadonnées associées.
+
+```{r}
+## Charge la base de données
+base <- readRDS("jocas_france/data/jocas_france.RDS")
+
+## Charge les fonds de carte
+map_dep <-readRDS("jocas_france/data/map_dep.RDS")
+map_reg <-readRDS("jocas_france/data/map_reg.RDS")
+
+## Charge les code ROME
+code_rome <- readRDS("jocas_france/data/code_rome.RDS")
+
+```
+
+### Jointure des données géographiques
+
+On effectue ensuite une jointure des données géographiques mais sans la géométrie.
+
+```{r}
+# Elimine la géométrie
+code_geo <- st_drop_geometry(map_dep)
+
+# Effectue la jointure par le code départemental
+base <- left_join(base, code_geo)
+```
+
+### Jointure des codes ROME
+
+On effectue la même opération pour les codes ROME aux trois niveaux d'agrégation :
+
+```{r}
+# Effectue la jointure par le code départemental
+base <- left_join(base, code_rome)
+```
+
+### Bilan des varirables disponibles
+
+On dispose désormais d'un tableau enrichi comportant 14 variables 
+
+```{r}
+names(base)
+```
+
+
+
+## Création de cubes
+
+On souhaite analyser la distribution des emplois  par mois (WHEN), par régions (WHERE) et par grand domaines de métier (WHAT) afin d'avoir une vision simplifiée de la distribution des offres d'emploi
+On va donc construire un tableau de contingence à trois dimensions dont les cellules correspondront à des comptages de nombre d'annonces.
+
+### Cube1 : mois x régions x grands domaines
+
+On peut facilement créer le tableau tri-dimensionnel avec dplyr. Son nombre de lignes devrait être au maximum de 12 (nombre de mois)  x 14 (nombre de régions métropolitaines) x 14 (nombre de grands domaines) = 2352
+
+```{r}
+
+cube1 <- base %>%  mutate(when = cut(date, breaks="month"),
+                          when_name =substr(as.character(when),6,7),
+                          where = reg,
+                          where_name = reg_nom,
+                          what = big_dom,
+                          what_name = big_dom_name) %>%
+                   na.omit() %>%
+                   group_by(when, where, what, when_name, where_name, what_name) %>%
+                   count() %>%
+                   as.data.frame()
+  
+                
+head(cube1)
+```
+
+Le cube comporte **2140** lignes seulement car tous les cas possibles ne sont pas présents. Le fichier initial en comportait **3.7 millions**. C'est donc un fichier très léger et beaucoup plus facile à utiliser dans une application web. Il offre pourtant un nombre très élevé de possibilités.
+
+
+### Cube2 : semaines x départements x domaines
+
+On refait un cube plus précis en croisant les semaines, les domaines et les départements
+
+```{r}
+
+cube2 <- base %>%  mutate(when = cut(date, breaks="weeks"),
+                          when_name =substr(as.character(when),6,7),
+                          where = dep,
+                          where_name = dep_nom,
+                          what = dom,
+                          what_name = dom_name) %>%
+                   na.omit() %>%
+                   group_by(when, where, what, when_name, where_name, what_name) %>%
+                   count() %>%
+                   as.data.frame()
+  
+                
+head(cube2)
+```
+
+## Fonctions élémentaires
+
+On va créer des fonctions permettant d'explorer une dimension à la fois
+
+### Analyse temporelle (when)
+
+Nous allons créer deux fonctions `tab_when` et `fig_when` pour faire soit un tableau, soit un graphique à partir d'un cube
+
+
+```{r}
+tab_when <- function(cube = cube) {
+
+  tab <- cube %>% 
+           group_by(when, when_name) %>%
+           summarise(n=sum(n)) %>%
+           mutate(when=as.Date(when)) %>% 
+           as.data.frame()
+  
+return(tab)
+}
+
+
+fig_when <- function(cube = cube) {
+  
+  tab <- tab_when(cube)
+
+   fig <- ggplot(tab) + 
+     aes(x=when, y = n) + 
+     geom_point()+
+     geom_line() + 
+     geom_smooth(method="lm")
+   
+  return(fig)}
+
+```
+
+
+On applique nos fonction  sur le cube1
+
+```{r}
+tab_when(cube1)
+fig_when(cube1)
+```
+
+On vérifie ensuite qu'elle marche sur le cube2
+
+```{r}
+tab_when(cube2)
+fig_when(cube2)
+```
+
+
+
+### Analyse catégorielle (what)
+
+Nous allons ensuite créer deux fonctions `tab_what()` et `fig_what()` qui permettent de visualiser le poids des différents types d'emploi. 
+
+```{r}
+tab_what <- function(cube = cube) {
+   
+  tab <- cube %>% 
+           group_by(what, what_name) %>%
+           summarise(n=sum(n)) %>%
+           arrange(-n) %>%
+           as.data.frame()
+  
+   return(tab)
+}
+
+
+fig_what <- function(cube = cube) {
+  
+  tab <- tab_what(cube)
+
+   fig <- ggplot(tab) + 
+     aes(x=what, y = n) + 
+     geom_col()
+   
+   return(fig)
+}
+
+
+```
+
+
+On teste nos fonctions sur le cube1
+
+```{r}
+tab_what(cube1)
+fig_what(cube1)
+```
+et sur le cube2 :
+
+
+```{r}
+tab_what(cube2)
+fig_what(cube2)
+```
+
+
+
+
+### Analyse spatiale (where)
+
+Nous allons maintenant créer des fonctions de cartographie pour visualiser nos données par régions ou département. 
+
+#### Analyse par régions
+
+```{r}
+tab_where_reg <- function(cube = cube) {
+  
+  tab <- cube %>% 
+           group_by(where, where_name) %>%
+           summarise(n=sum(n)) %>%
+           rename(reg=where) %>%
+           as.data.frame()
+  
+   return(tab)
+}
+
+fig_where_reg <- function(cube = cube){
+  
+  tab <- tab_where_reg(cube) 
+  
+  mapdon<-left_join(map_reg,tab)
+  
+  mf_map(mapdon, 
+         type="base", 
+         col="lightyellow")
+  mf_map(mapdon, 
+         type="prop",
+         var="n",
+         inches=0.1)
+  mf_layout(title = "Offres d'emplois par région",
+            frame=T,
+            credits = "Source : base JOCAS, 2020")
+}
+
+
+tab_where_reg(cube1)
+fig_where_reg(cube1)
+
+```
+
+
+#### Analyse par départements
+
+```{r}
+tab_where_dep <- function(cube = cube) {
+  
+  tab <- cube %>% 
+           group_by(where, where_name) %>%
+           summarise(n=sum(n)) %>%
+           rename(dep=where) %>%
+           as.data.frame()
+  
+   return(tab)
+}
+
+fig_where_dep <- function(cube = cube){
+  
+  tab <- tab_where_dep(cube) 
+  
+  mapdon<-left_join(map_dep,tab)
+  
+  mf_map(mapdon, 
+         type="base", 
+         col="lightyellow")
+  mf_map(mapdon, 
+         type="prop",
+         var="n",
+         inches=0.1)
+  mf_layout(title = "Offres d'emplois par département",
+            frame=T,
+            credits = "Source : base JOCAS, 2020")
+}
+
+
+tab_where_dep(cube2)
+fig_where_dep(cube2)
+
+```
+
+
+## Fonctions complexes
+
+On peut créer des fonctions plus complexe croisant plusieurs dimensions. 
+
+
+### Exemple 1 : comparaison des évolutions temporelles de départements
+
+Supposons que l'on veuille comparer l'évolution des offres d'emploi dans plusieurs départements
+
+```{r}
+tab_when_where<-function(cube=cube2, locs=c("75","92","93","94")){
+  tab<-cube %>% filter(where %in% locs ) %>%
+              group_by(when, where) %>%
+              summarise(n=sum(n)) %>%
+              mutate(when=as.Date(when)) %>% 
+              as.data.frame()
+  return(tab)
+}
+
+fig_when_where <- function(cube=cube2,locs=c("75","92","93","94")) {
+  
+  tab<-tab_when_where(cube,locs)
+  
+     fig <- ggplot(tab) + 
+     aes(x=when, y = n, col=where) + 
+     geom_point()+
+     geom_line() + 
+     geom_smooth(method="lm",fill = NA)
+     
+     return(fig)
+  
+}
+
+fig_when_where(cube2, c("75","92","93","94"))
+```
+
+
+
+
+
+
