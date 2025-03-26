@@ -4978,7 +4978,7 @@ Geodetic CRS:  WGS 84</code></pre>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>code_rome<span class="ot">&lt;-</span>code <span class="sc">%&gt;%</span>   <span class="fu">mutate</span>(<span class="at">job=</span><span class="fu">as.factor</span>(code_rome),</span>
 <span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>                          <span class="at">job_name=</span><span class="fu">as.factor</span>(libelle),</span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>                          <span class="at">dom =</span><span class="fu">as.factor</span>(domaine_professionnel),</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>                          <span class="at">dom =</span><span class="fu">as.factor</span>(<span class="fu">paste0</span>(grand_domaine,domaine_professionnel)),</span>
 <span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>                          <span class="at">dom_name =</span><span class="fu">as.factor</span>(libelle_domaine_professionnel),</span>
 <span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>                          <span class="at">big_dom =</span> <span class="fu">as.factor</span>(grand_domaine),</span>
 <span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>                          <span class="at">big_dom_name =</span> <span class="fu">as.factor</span>(libelle_grand_domaine)) <span class="sc">%&gt;%</span></span>
@@ -5008,12 +5008,12 @@ Geodetic CRS:  WGS 84</code></pre>
 5                                          Chef d&#39;atelier d&#39;entretien et de maintenance industrielle
 6                                        Agent / Agente d&#39;intervention sur équipements électroniques
   dom                                          dom_name big_dom
-1  12                               Entretien technique       I
-2  12                               Entretien technique       I
-3  13 Equipements de production, équipements collectifs       I
-4  13 Equipements de production, équipements collectifs       I
-5  13 Equipements de production, équipements collectifs       I
-6  13 Equipements de production, équipements collectifs       I
+1 I12                               Entretien technique       I
+2 I12                               Entretien technique       I
+3 I13 Equipements de production, équipements collectifs       I
+4 I13 Equipements de production, équipements collectifs       I
+5 I13 Equipements de production, équipements collectifs       I
+6 I13 Equipements de production, équipements collectifs       I
                  big_dom_name
 1 Installation et Maintenance
 2 Installation et Maintenance
@@ -5028,7 +5028,7 @@ Geodetic CRS:  WGS 84</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(<span class="fu">table</span>(code_rome<span class="sc">$</span>dom))  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 26</code></pre>
+<pre><code>[1] 110</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(<span class="fu">table</span>(code_rome<span class="sc">$</span>big_dom))  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">

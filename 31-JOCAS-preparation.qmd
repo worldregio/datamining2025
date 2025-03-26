@@ -246,7 +246,7 @@ Ce tableau très détaillé comporte 31977 lignes car il établit les correspond
 ```{r}
 code_rome<-code %>%   mutate(job=as.factor(code_rome),
                           job_name=as.factor(libelle),
-                          dom =as.factor(domaine_professionnel),
+                          dom =as.factor(paste0(grand_domaine,domaine_professionnel)),
                           dom_name =as.factor(libelle_domaine_professionnel),
                           big_dom = as.factor(grand_domaine),
                           big_dom_name = as.factor(libelle_grand_domaine)) %>%
