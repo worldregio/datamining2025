@@ -28,7 +28,7 @@ website:
             text: "Cartographie dynamique" 
       - text: "Projet JOCAS"
         menu:
-          - href: 31-JOCAS1-Exploration.qmd
+          - href: 31-JOCAS-preparation.qmd
             text: "Préparation de la base "
     right: 
       - icon: github # add icons as navbar buttons
