@@ -32,6 +32,12 @@ website:
             text: "Préparation"
           - href: 32-JOCAS-agregation.qmd
             text: "Agregation"
+      - text: "Projet Paris PC"
+        menu:
+          - href: 41-Projet_ParisPC.qmd
+            text: "Préparation des données"
+          - href: 42-Projet-shiny.qmd
+            text: "Application Shiny CSP"
     right: 
       - icon: github # add icons as navbar buttons
         href: https://github.com/worldregio/datamining2025
