@@ -1,41 +1,9 @@
 ---
-title: "Données sur Paris PC"
+title: "Données JOCAS sur Paris PC"
 author: "Claude Grasland"
 format: html
 embed-resources: true
 ---
-
-
-```{r  echo=TRUE, cache=FALSE, warning=FALSE}
-library(knitr)
-## Global options
-options(max.print="80")
-opts_chunk$set(echo=TRUE,
-               cache=FALSE,
-               prompt=FALSE,
-               tidy=FALSE,
-               comment=NA,
-               message=FALSE,
-               warning=FALSE,
-               options(scipen=999))
-opts_knit$set(width=75)
-
-# Packages utilitaires
-library(dplyr)
-library(tidyr)
-
-
-# Packages graphiques
-
-#packages cartographiques 
-library(sf)
-library(mapsf)
-
-
-
-
-```
-
 
 ## Objectif
 
@@ -44,7 +12,7 @@ Dans le cadre du projet Shiny, on se propose de mettre en relation des données 
 -   le fichier individu du RP 2019
 -   la base JOCAS 2020
 
-Nous souhaitons comparer la distribution des chômeurs (issue du RP) et celle des offres d'emploi (issue de la base JOCAS).
+Nous souhaitons comparer la distribution des chômeurs (issue du RP) et celle des offres d'emploi (issue de la base JOCAS). Pour cela il faut redistribuer les données JOCAS par communes ce qu n'est pas évident car on ne dispose que du code posta:l
 
 Les analyses devront être réalisées à trois échelles géographiques :
 
@@ -52,9 +20,14 @@ Les analyses devront être réalisées à trois échelles géographiques :
 2.  Les 12 territoires de la métropole du Grand Paris (T01 .. T12)
 3.  Les 142 communes ou arrondissements de ce territoire
 
+```{r}
+library(sf)
+library(mapsf)
+library(dplyr)
+library(tidyr)
+```
 
 On va commencer par préparer des jeux de données utiles à l'application Shiny en réalisant des pré-traitements d'agrégation et de nettoyage
-
 
 ## DONNEES GEOMETRIQUES
 
@@ -128,15 +101,15 @@ On sauvegarde le fonds de carte des communes puis on crée les niveaux agrégés
 
 ```{r}
 map_com <- map %>% st_transform(2154)
-#saveRDS(map_com, "data/map_com.RDS")
+saveRDS(map_com, "data/Shiny_ParisPC/data/map_com.RDS")
 
 map_ept <- map_com %>% group_by(ept_code, ept_name, dep_code, dep_name) %>%
                       summarise()
-#saveRDS(map_ept, "data/map_ept.RDS")
+saveRDS(map_ept, "data/Shiny_ParisPC/data/map_ept.RDS")
 
 map_dep <- map_com %>% group_by(dep_code, dep_name) %>%
                       summarise()
-#saveRDS(map_dep, "data/map_dep.RDS")
+saveRDS(map_dep, "data/Shiny_ParisPC/data/map_dep.RDS")
 
 ```
 
@@ -165,124 +138,12 @@ mf_layout("Départements, territoires et communes de Paris & Petite Couronne",
 ```
 
 
-## DONNEES ISSUES DU RP 2019
-
-
-On va créer des hypercubes croisant la localisation spatiale (à différentes échelles) avec des caractéristiques des individus ou des ménages afin de créer des hypercubes (*Cf. cours C. Grasland*). On va utiliser pour cela une fonction type (*Cf. cours de Camille Signoretto*)
-
-
-### Tableau des actifs par CSP & Commune
-
-
-On commence par charger les données et métadonnées :
-
-```{r}
-rp<-readRDS("data/Shiny_ParisPC/raw/RP/RP_final.RDS") 
-meta<-readRDS("data/Shiny_ParisPC/raw/RP/meta.RDS")
-```
-
-On s'intéresse à la variable CS1 dont on vérifie les attibuts :
-
-```{r}
-tabmod<-meta %>% filter(COD_VAR=="CS1") %>% select(COD_MOD,LIB_MOD)
-tabmod
-```
-
-
-On élimine les retraités et autres inactifs et on fusionne les agriculteurs avec les artisans et commerçants. Puis on garde les variables utiles :
-
-```{r}
-sel <- rp %>% mutate(com_code=substr(IRIS,1,5)) %>%
-       mutate(CS1_moda=case_when(CS1 == "1" ~ "art",
-                             CS1 == "2" ~ "art",
-                             CS1 == "3" ~ "cad",
-                             CS1 == "4" ~ "int",
-                             CS1 == "5" ~ "emp",
-                             CS1 == "6" ~ "ouv",                            
-                             TRUE ~ NA)) %>%
-       filter(is.na(CS1_moda)==F) %>%
-       select(com_code,CS1_moda, IPONDI, SEXE)
-head(sel)
-```
-
-
-On crée une fonction adaptée qu'on pourra réutiliser :
-
-```{r}
-agreg_soc_geo <-function(data=data,
-                    var_soc=var_soc,
-                    var_geo = var_geo,
-                    wgt = wgt){
-  
-  som <- data %>% 
-    group_by({{var_geo}}) %>% 
-    count({{var_soc}}, wt={{wgt}}) %>% 
-    mutate(n=round(n)) %>% 
-    pivot_wider(names_from = {{var_soc}}, values_from = n,values_fill = 0) %>%
-    as.data.frame()
-    som$tot <- apply(som[,-1],1,sum,na.rm=T)
-    
-  
-  return(som)
-}
-
-```
-
-
-On applique la fonction :
-
-
-```{r}
-tab_com_csp <- agreg_soc_geo(data=sel, 
-                        var_soc = CS1_moda,
-                        var_geo=com_code,
-                        wgt=IPONDI)
-head(tab_com_csp)
-```
-
-
-On sauvegarde le tableau :
-
-```{r}
-#saveRDS(tab_com_csp,'data/Shiny_ParisPC/data/tab_com_csp.RDS')
-```
-
-
-
-### Tableau des chômeurs par CSP et Commune
-
-On souhaite maintenant construire un tableau localisant les chômeurs par commune et CSP. Il suffit de reprendre nos programmes précédents en sélecionnant les chômeurs dans TACT
-
-```{r}
-sel<-rp %>% filter(TACT==12) %>%
-       mutate(com_code=substr(IRIS,1,5)) %>%
-       mutate(CS1_moda=case_when(CS1 == "1" ~ "art",
-                             CS1 == "2" ~ "art",
-                             CS1 == "3" ~ "cad",
-                             CS1 == "4" ~ "int",
-                             CS1 == "5" ~ "emp",
-                             CS1 == "6" ~ "ouv",                            
-                             TRUE ~ NA)) %>%
-       filter(is.na(CS1_moda)==F)
-       
-tab_com_csp_chom<- agreg_soc_geo( data=sel,
-                             var_soc = CS1_moda,
-                             var_geo=com_code,
-                             wgt=IPONDI)
-
-head(tab_com_csp_chom)
-
-saveRDS(tab_com_csp_chom, "data/tab_com_csp_chom.RDS")
-```
-
-
 ## DONNEES ISSUES DE JOCAS 2020
-
 
 Nous allons maintenant essayer de construire une base de données des offres d'emploi par type de métier au niveau des communes. Plusieurs difficultés vont se présenter, les deux principales étant :
 
-1. que l'on ne dispose pas des codes communaux mais uniquement des codes postaux
-2. que les offres d'emplois ne sont pas classées par CSP mais par code ROME
+1.  que l'on ne dispose pas des codes communaux mais uniquement des codes postaux
+2.  que les offres d'emplois ne sont pas classées par CSP mais par code ROME
 
 ### Chargement de la base
 
@@ -290,21 +151,22 @@ Nous allons maintenant essayer de construire une base de données des offres d'e
 base <- readRDS("data/Shiny_ParisPC/raw/jocas/jocas_ParisPC.RDS")
 
 sel <- base %>%   mutate(zip_code = as.character(location_zipcode),
-                         dep_code = as.character(location_departement),
-                         rom_code = as.character(job_ROME_code)) %>%
-                  select(zip_code,dep_code,rom_code)
+                         rom = as.character(job_ROME_code),
+                         dat = date_sitePublicationDay,
+                         cdi = ifelse(contractType=="CDI","Oui","Non"),
+                         dur = contractDuration_value,
+                         sal = salary_hourly_mean)  %>%
+                     select(dat, cdi,dur,sal,zip_code,rom)
 ```
-
 
 ### Transformation des codes postaux en code communaux
 
-On charge une table de correspondance trouvée sur Public Open Datasoft 
+On charge une table de correspondance trouvée sur Public Open Datasoft
 
 ```{r}
 zip_to_com <- readRDS("data/Shiny_ParisPC/raw/jocas/zip_code_to_com_code.RDS")
 head(zip_to_com)
 ```
-
 
 Puis on effectue la jointure et on examine combien d'offres d'emploi ont pu être localisées par commune :
 
@@ -336,11 +198,21 @@ map_com %>% st_drop_geometry() %>% arrange(-n) %>% head()
 Il s'agit donc d'offres d'emploi qui concernent Paris dans son ensemble et auxquelles on a affecté par défaut le code postal '75001'. On va donc affecter la valeur NA à cet arrondissement pour éviter les erreurs et on recalcule la distributoion des valeurs manquantes.
 
 ```{r}
-sel$com_code<-ifelse(sel$zip_code=="75001", NA, sel$com_code)
+sel$com_code<-ifelse(sel$zip_code=="75101", NA, sel$com_code)
 table(is.na(sel$com_code))
 ```
 
-Il y a donc 268533 offres pour lesquelles on connaît le département et la commune et 151970 pour lesquelles on connaît le département mais pas la commune. 
+Il y a donc 268533 offres pour lesquelles on connaît le département et la commune et 151970 pour lesquelles on connaît le département mais pas la commune.
+
+
+### Jointure des codes geo
+
+```{r}
+geocode<-readRDS("data/Shiny_ParisPC/data/map_com.RDS") %>% st_drop_geometry()
+sel2 <- sel %>% left_join(geocode) %>% select(-zip_code,-zip_name,-zip_type) %>% filter(is.na(com_code)==F)
+```
+
+
 
 ### Codification des offres d'emploi en 14 catégories
 
@@ -362,37 +234,20 @@ job
 On réalise une jointure avec la base JOCAS et on dénombre les effectifs par grands domaines
 
 ```{r}
-sel <- sel %>% mutate(job_code = substr(rom_code,1,1)) %>% 
-  inner_join(job)
+sel3 <- sel2 %>% mutate(job_code = substr(rom,1,1)) %>% 
+  inner_join(job) %>% filter(is.na(job_code)==F,
+                             job_code !="") %>% select(-rom)
 
-tab_job <- sel %>% group_by(job_code, job_name) %>% count() %>% arrange(-n)
+tab_job <- sel3 %>% group_by(job_code, job_name) %>% count() %>% arrange(-n)
 tab_job
 ```
 
+### Sauvegarde
 
-### Agrégation des offres d'emploi par commune
-
-On agrège les offres d'emploi par commune en retirant celles qui ne sont pas localisées à cette échelle ou qui n'ont pas de code rome. Pour cela on reprend notre fonction d'agrégation.
-
-```{r}
-sel_com <- sel %>% filter(is.na(com_code)==F) %>%
-                      mutate(poids=1)
-
-
-tab_com_job <-agreg_soc_geo(data=sel_com, var_soc = job_code, var_geo=com_code, wgt=poids)
-#saveRDS(tab_com_job,"data/tab_com_job.RDS")
-```
-
-### Agrégation des offres d'emploi par département
-
-On réalise un second tableau des offres d'emploi par département en conservant l'ensemble des offres d'emploi c'est-à-dire en incluant celles pour lesquelles on avait juste le département.
+On sauvegarde le tableau final
 
 ```{r}
-sel_dep <- sel %>% mutate(poids=1)
-
-
-tab_dep_job <-agreg_soc_geo(data=sel_dep, var_soc = job_code, var_geo=dep_code, wgt=poids)
-#saveRDS(tab_com_job,"data/tab_dep_job.RDS")
+saveRDS(sel3,"data/Shiny_ParisPC/data/JOCAS_parisPC_clean.RDS")
 ```
 
 

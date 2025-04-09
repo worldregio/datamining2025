@@ -4559,20 +4559,9 @@ vertical-align: -.125em;
     <a class="dropdown-item" href="./32-JOCAS-agregation.html" rel target>
  <span class="dropdown-text">Agregation</span></a>
   </li>  
-    </ul>
-  </li>
-  <li class="nav-item dropdown ">
-    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-projet-paris-pc" role="button" data-bs-toggle="dropdown" aria-expanded="false" rel target>
- <span class="menu-text">Projet Paris PC</span>
-    </a>
-    <ul class="dropdown-menu" aria-labelledby="nav-menu-projet-paris-pc">    
         <li>
-    <a class="dropdown-item" href="./41-Projet_ParisPC.html" rel target>
- <span class="dropdown-text">Préparation des données</span></a>
-  </li>  
-        <li>
-    <a class="dropdown-item" href="./42-Projet-shiny.html" rel target>
- <span class="dropdown-text">Application Shiny CSP</span></a>
+    <a class="dropdown-item" href="./33-JOCAS_ParisPC.html" rel target>
+ <span class="dropdown-text">Données JOCAS Paris PC</span></a>
   </li>  
     </ul>
   </li>
@@ -4740,7 +4729,7 @@ vertical-align: -.125em;
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ovni</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Response [http://api.open-notify.org/astros.json]
-  Date: 2025-04-08 17:00
+  Date: 2025-04-09 20:06
   Status: 200
   Content-Type: application/json
   Size: 587 B</code></pre>
@@ -4761,7 +4750,7 @@ vertical-align: -.125em;
  $ status_code: int 200
  $ headers    :List of 6
   ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  ..$ date                       : chr &quot;Tue, 08 Apr 2025 17:00:36 GMT&quot;
+  ..$ date                       : chr &quot;Wed, 09 Apr 2025 20:06:25 GMT&quot;
   ..$ content-type               : chr &quot;application/json&quot;
   ..$ content-length             : chr &quot;587&quot;
   ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4773,7 +4762,7 @@ vertical-align: -.125em;
   .. ..$ version: chr &quot;HTTP/1.1&quot;
   .. ..$ headers:List of 6
   .. .. ..$ server                     : chr &quot;nginx/1.10.3&quot;
-  .. .. ..$ date                       : chr &quot;Tue, 08 Apr 2025 17:00:36 GMT&quot;
+  .. .. ..$ date                       : chr &quot;Wed, 09 Apr 2025 20:06:25 GMT&quot;
   .. .. ..$ content-type               : chr &quot;application/json&quot;
   .. .. ..$ content-length             : chr &quot;587&quot;
   .. .. ..$ connection                 : chr &quot;keep-alive&quot;
@@ -4788,8 +4777,8 @@ vertical-align: -.125em;
   ..$ name      : logi(0) 
   ..$ value     : logi(0) 
  $ content    : raw [1:587] 7b 22 70 65 ...
- $ date       : POSIXct[1:1], format: &quot;2025-04-08 17:00:36&quot;
- $ times      : Named num [1:6] 0 0.0043 0.1501 0.1502 0.2954 ...
+ $ date       : POSIXct[1:1], format: &quot;2025-04-09 20:06:25&quot;
+ $ times      : Named num [1:6] 0 0.0432 2.1909 2.1917 2.3359 ...
   ..- attr(*, &quot;names&quot;)= chr [1:6] &quot;redirect&quot; &quot;namelookup&quot; &quot;connect&quot; &quot;pretransfer&quot; ...
  $ request    :List of 7
   ..$ method    : chr &quot;GET&quot;
@@ -4816,11 +4805,11 @@ vertical-align: -.125em;
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ovni<span class="sc">$</span>headers<span class="sc">$</span>date</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Tue, 08 Apr 2025 17:00:36 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Wed, 09 Apr 2025 20:06:25 GMT&quot;</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>ovni[[<span class="st">&quot;headers&quot;</span>]][[<span class="st">&quot;date&quot;</span>]]</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] &quot;Tue, 08 Apr 2025 17:00:36 GMT&quot;</code></pre>
+<pre><code>[1] &quot;Wed, 09 Apr 2025 20:06:25 GMT&quot;</code></pre>
 </div>
 </div>
 <p>On peut également afficher les noms des branches en partant de la racine puis en suivant l’arbre à l’aide de l’instruction <code>names()</code></p>
@@ -5025,18 +5014,18 @@ vertical-align: -.125em;
 <span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_ISS2</span>()</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>      craft                 name                          date
-1       ISS       Oleg Kononenko Tue, 08 Apr 2025 17:00:36 GMT
-2       ISS         Nikolai Chub Tue, 08 Apr 2025 17:00:36 GMT
-3       ISS Tracy Caldwell Dyson Tue, 08 Apr 2025 17:00:36 GMT
-4       ISS     Matthew Dominick Tue, 08 Apr 2025 17:00:36 GMT
-5       ISS      Michael Barratt Tue, 08 Apr 2025 17:00:36 GMT
-6       ISS        Jeanette Epps Tue, 08 Apr 2025 17:00:36 GMT
-7       ISS  Alexander Grebenkin Tue, 08 Apr 2025 17:00:36 GMT
-8       ISS        Butch Wilmore Tue, 08 Apr 2025 17:00:36 GMT
-9       ISS      Sunita Williams Tue, 08 Apr 2025 17:00:36 GMT
-10 Tiangong           Li Guangsu Tue, 08 Apr 2025 17:00:36 GMT
-11 Tiangong              Li Cong Tue, 08 Apr 2025 17:00:36 GMT
-12 Tiangong           Ye Guangfu Tue, 08 Apr 2025 17:00:36 GMT</code></pre>
+1       ISS       Oleg Kononenko Wed, 09 Apr 2025 20:06:26 GMT
+2       ISS         Nikolai Chub Wed, 09 Apr 2025 20:06:26 GMT
+3       ISS Tracy Caldwell Dyson Wed, 09 Apr 2025 20:06:26 GMT
+4       ISS     Matthew Dominick Wed, 09 Apr 2025 20:06:26 GMT
+5       ISS      Michael Barratt Wed, 09 Apr 2025 20:06:26 GMT
+6       ISS        Jeanette Epps Wed, 09 Apr 2025 20:06:26 GMT
+7       ISS  Alexander Grebenkin Wed, 09 Apr 2025 20:06:26 GMT
+8       ISS        Butch Wilmore Wed, 09 Apr 2025 20:06:26 GMT
+9       ISS      Sunita Williams Wed, 09 Apr 2025 20:06:26 GMT
+10 Tiangong           Li Guangsu Wed, 09 Apr 2025 20:06:26 GMT
+11 Tiangong              Li Cong Wed, 09 Apr 2025 20:06:26 GMT
+12 Tiangong           Ye Guangfu Wed, 09 Apr 2025 20:06:26 GMT</code></pre>
 </div>
 </div>
 <p>Et si on est à l’aise avec les listes, on peut aussi exporter les résultats sous la forme d’une liste plutôt que d’un tableau, ce qui évite de répéter plusieurs fois la date d’extraction des données</p>
@@ -5058,7 +5047,7 @@ vertical-align: -.125em;
 <span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(x<span class="sc">$</span>Data, <span class="at">caption=</span><span class="fu">paste</span>(<span class="st">&quot;Passagers de l&#39;ISS :&quot;</span>, x<span class="sc">$</span>Update))</span></code><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="table table-sm table-striped small">
-<caption>Passagers de l’ISS : Tue, 08 Apr 2025 17:00:36 GMT</caption>
+<caption>Passagers de l’ISS : Wed, 09 Apr 2025 20:06:26 GMT</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;">craft</th>
