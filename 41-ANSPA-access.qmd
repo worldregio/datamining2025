@@ -1,0 +1,1301 @@
+---
+title: "Accessibilité et Potentiel"
+author: "Claude Grasland"
+format: 
+  html:
+    embed-resources: true
+---
+
+
+
+
+
+```{r knitr_init, echo=FALSE, warning=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+**Intro**  
+
+Cette séance va permettre :
+
+- **de consolider les apprentissages** des premières séance sur les données spatiales et la cartographie statique ou dynamique 
+
+- d'aborder de nouvelles données **sous l'angle des problèmes de localisation optimale**, dans une perspective soit de **service public** (e.g. localisation optimale des écoles ou des crèches), soit de  **concurrence spatiale** (localisation d'un commerce maximisant la clientète).
+
+- de créer des **fonctions-type** de cartographie et d'analye spatiale pouvant être mobilisées ensuite dans des **applications shiny** interactives.
+
+
+
+
+## **1. Chargement  des packages**
+
+
+On reprend juste pour mémoire la liste des packages connus : 
+
+Pour la **manipulation des tableaux de données statistiques** :
+```{r}
+
+if(!require('dplyr')){
+  install.packages('dplyr')
+  library('dplyr')
+}
+```
+
+Pour la **manipulation de données spatiales** : sf (traitement données spatiales, dont géotraitements), rgdal (import/export, projections...), maptools (gestion de données spatiales) :
+```{r}
+if(!require('sf')){
+  install.packages('sf')
+  library('sf')
+}
+
+
+```
+
+Packages plus spécifiques à la **cartographie** : pour les cartes web par points (Leaflet) et pour les cartes statistiques (mapsf).
+```{r}
+if(!require('leaflet')){
+  install.packages('leaflet')
+  library('leaflet')
+}
+if(!require('mapsf')){
+  install.packages('mapsf')
+  library('mapsf')
+}
+```
+
+Pour faire des **graphiques** plus élaborés qu'avec 'plot' :
+```{r}
+if(!require('ggplot2')){
+  install.packages('ggplot2')
+  library('ggplot2')
+}
+```
+
+Pour construire des cartes **lissées** et faire des analyse d'accessibilité ou d'aires de marché on charge un nouveau package : 
+```{r}
+if(!require('potential')){
+  install.packages('potential')
+  library('potential')
+}
+
+
+```
+
+
+# **2. Bases de données**
+
+On dispose de trois jeux de données sur Paris et les départements de Petite Couronne qui ont été téléchargés sur le site de l'INSEE et légèrement retouchés pour en faciliter l'utilisation.
+
+## Contour des communes d'Ile de France
+
+Ce fichier fournit le contour des communes d'Ile de France. On commence par vérifier le système de projection : 
+
+```{r}
+mapcom<-readRDS("data/bpe/mapcom.RDS")
+st_crs(mapcom)
+```
+
+Le système de projection EPSG = 4326 est celui qui convient pour leaflet. On peut par exemple visualiser une commune facilement :
+
+```{r}
+mycom<-mapcom %>% filter(CODE_COM == "94071")
+coo<-st_coordinates(st_centroid(mycom))
+lngref<-mean(coo[,1])
+latref<-mean(coo[,2])
+
+
+leaflet() %>% setView(mycom,lng = lngref, lat=latref, zoom = 13) %>%
+              addTiles() %>%
+              addPolygons(data=mycom, 
+                          weight = 1,
+                          col = "red", 
+                          opacity = 0.3)
+
+```
+
+
+
+
+
+## Revenus, pauvreté et niveau de vie en 2015 - Données carroyées 
+
+Ces données issues du "Dispositif Fichier localisé social et fiscal" (Filosofi) ont été créée pour des besoins de services public : 
+
+>L'Insee fournit des informations socio-économiques sur près de 30 millions de ménages. Il diffuse ces informations à différentes échelles dont la plus petite est celle d’un carreau de 200 mètres de côté.
+
+>Ces statistiques locales permettent d’observer finement la situation socio-économique de la population de zones géographiques très ciblées. Elles représentent une source d’information précieuse pour aller au-devant des besoins des habitants et des acteurs économiques et accompagner la mise en œuvre de politiques publiques.
+
+Source : [INSEE](https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305) 
+
+Examinons à titre d'exemple les carreaux correspondant majoritairement au territoire de la commune de Sucy-en-Brie (code = 94071)
+
+
+```{r}
+gridpop<-readRDS("data/bpe/gridpop.RDS")
+st_crs(gridpop)
+
+grid_sel<-gridpop %>% filter(Depcom == "94071")
+
+```
+
+
+```{r }
+
+leaflet() %>% setView(mycom,lng = lngref, lat=latref, zoom = 13) %>%
+              addTiles() %>%  addPolygons(data=mycom, 
+                          weight = 1,
+                          col = "blue", 
+                          opacity = 0.1) %>% addPolygons(data=grid_sel, 
+                          weight = 1,
+                          col = "red", 
+                          opacity = 0.3) 
+
+
+```
+
+Comme on peut le voir, les carreaux ne sont présent que dans les zones peuplées et ne recouvrent pas les zones inhabitées telles que la Forêt Notre-Dame (à l'Est) ou la zone d'activité des Petits Carreaux (à l'Ouest).
+
+Le fichier propose un grand nombre de variables dont on trouvera la description dans le document explicatif [dictionnaire des variables accessible sur le site de l'INSEE](https://www.insee.fr/fr/statistiques/4176290?sommaire=4176305#dictionnaire)
+
+
+```{r}
+kable(head(st_drop_geometry(grid_sel))[,1:5])
+```
+
+Pour des raisons de confidentialités, les données ne peuvent toutefois  être divulguées lorsqu'il y a moins de 10 à 20 ménages dans un carreau de la grille. Dans ce cas, les données sont "modifiées" en effectuant une sorte de moyenne avec les carreaux les plus proches. Cette modification est signalée par la variable I_est_cr que l'on représente ci-dessous à laide de carreaux rouges sur lesquels on a superposé le nombre de ménages : 
+
+```{r }
+# Couleur
+grid_sel$confid<-as.factor(grid_sel$I_est_cr)
+levels(grid_sel$confid)<-c("yellow","red")
+grid_sel$confid<-as.character(grid_sel$confid)
+
+# Centroids
+ctr<-st_coordinates(st_centroid(grid_sel))
+lng<-ctr[,1]
+lat<-ctr[,2]
+
+# Calcul du diamètre des cercles
+   myradius <-8*sqrt(grid_sel$Men/max(grid_sel$Men, na.rm=T))
+
+leaflet() %>% setView(mycom,lng = lngref, lat=latref, zoom = 13) %>%
+              addProviderTiles('Esri.WorldTopoMap') %>% addPolygons(data=mycom, 
+                          weight = 1,
+                          col = "blue",
+                          fillOpacity = 0.1) %>% addPolygons(data=grid_sel, 
+                          weight = 1,
+                          color = "gray80",
+                          fillColor = ~confid,
+                          opacity = 0.3) %>%  addCircleMarkers(data=grid_sel,
+                              lat = ~lat,
+                              lng = ~lng,
+                              radius = myradius,
+                              stroke = FALSE,
+                              label = ~Men,
+                              fillColor = "gray50",
+                              fillOpacity = 0.5)
+  
+```
+
+## Base permanente des équipements
+
+La seconde base de donnée porte sur les équipements, ce terme recouvrant aussi bien des infrastructures publiques (écoles, hopitaux, ...) que privées (banques, pharmacies, ...). Elle est issue d'un travail en cours de l'INSEE qui vise à fournir pour chaque équipement une géolocalisation précise issue du fichier des adresses de ces équipements. La dernière mise à jour date de 2020 et est accessible à l'aide [de ce lien ](https://www.insee.fr/fr/statistiques/3568656)
+
+>La base permanente des équipements (BPE) est une source statistique qui fournit le niveau d'équipements et de services rendus à la population sur un territoire. Les résultats sont proposés sous forme de bases de données dans différents formats et pour des niveaux géographiques allant de la commune (ou l'iris pour certaines bases) jusqu'à la région, en intégrant des zonages d'étude (AAV, UU, BV). L'offre comprend également des bases de données où de nombreux équipements sont géolocalisés. 
+
+Il est important de bien se reporter à la documentation accessible sur le site de l'INSEE pour comprendre la manière dont elle a été constituée et les erreurs qu'elle peut comporter.
+
+Comme pour les données carroyées, nous allons dans un premier temps charger un extrait correspondant à la commune de Sucy-en-Brie : 
+
+```{r}
+bpe<-readRDS("data/bpe/bpe.RDS")
+
+bpe_sel<-bpe %>% filter(DEPCOM == "94071") 
+kable(head(bpe_sel))
+```
+
+On peut voir que le fichier comporte 817 équipements, certains étant rares et d'autres fréquents.
+
+```{r}
+tab<-bpe_sel %>% st_drop_geometry() %>%
+                count(TYPEQU,TYPEQU_NAME) %>%
+                arrange(-n)
+kable(head(tab,25))
+```
+
+
+
+
+Examinons à titre d'exemple la localisation des pharmacies (code D307)
+
+```{r eval=F}
+pha<-bpe_sel %>% filter(TYPEQU == "D307")
+leaflet() %>% setView(mycom,lng = lngref, lat=latref, zoom = 13) %>%
+              addProviderTiles('Esri.WorldTopoMap') %>%
+  
+                addPolygons(data=mycom, 
+                          weight = 1,
+                          col = "blue",
+                          fillOpacity = 0.1) %>%
+  
+              addCircleMarkers(data=pha,
+                               radius = 5,
+                               stroke = T,
+                               weight = 2,
+                               label = ~QUALITE_XY,
+                               color="red",
+                               fillColor =  "yellow")
+```
+
+<div style="background-color: #ffe0bd">
+
+  **Exercice** : Faites une carte de la distribution des écoles élémentaires. 
+
+</div>
+
+
+```{r eval=F}
+ecol<-bpe_sel %>% filter(TYPEQU == "C104")
+leaflet() %>% setView(mycom,lng = lngref, lat=latref, zoom = 13) %>%
+              addProviderTiles('Esri.WorldTopoMap') %>%
+  
+                addPolygons(data=mycom, 
+                          weight = 1,
+                          col = "blue",
+                          fillOpacity = 0.1) %>%
+  
+              addCircleMarkers(data=ecol,
+                               radius = 5,
+                               stroke = T,
+                               weight = 2,
+                               label = ~QUALITE_XY,
+                               color="red",
+                               fillColor =  "yellow")
+```
+
+<div style="background-color: #ffe0bd">
+
+  **Exercice** : et des agences immobilières. 
+
+</div>
+
+```{r eval = F}
+pha<-bpe_sel %>% filter(TYPEQU == "A505")
+leaflet() %>% setView(mycom,lng = lngref, lat=latref, zoom = 13) %>%
+              addProviderTiles('Esri.WorldTopoMap') %>%
+  
+                addPolygons(data=mycom, 
+                          weight = 1,
+                          col = "blue",
+                          fillOpacity = 0.1) %>%
+  
+              addCircleMarkers(data=pha,
+                               radius = 5,
+                               stroke = T,
+                               weight = 2,
+                               label = ~QUALITE_XY,
+                               color="red",
+                               fillColor =  "yellow")
+```
+
+
+
+# **3. Exploration cartographique **
+
+Nous allons préparer une série de trois fonctions facilitant la préparation des fichiers dont nous aurons besoin pour notre application shiny
+
+### Contour des communes
+
+On suppose que notre application permettra de sélectionner une liste finie de communes dont on veut avoir les contours. Selon les besoins, les coordonnées pourront adopter différentes projections. 
+
+```{r}
+#mapcom<-readRDS(file = "com.RDS")
+extract_map<-function( mapcom = mapcom,
+                       mycom = c("94071"),
+                       myproj = 2154) { 
+  
+  map<-mapcom %>% filter(CODE_COM %in% mycom) %>% 
+                 st_transform(crs=myproj)
+  
+  return(map)
+}
+
+```
+
+
+Nous essayons d'appliquer notre fonction à la cartographie d'un ensemble de communes de l'est du val de Marne : 
+
+```{r}
+selcom<-c("94071","94055","94019","94053","94059","94060", "94079", "94017","94068","94011")
+mymap<-extract_map(mapcom = mapcom,
+                   mycom = selcom,
+                   myproj = 2154)
+kable(head(mymap))
+
+```
+On cartographie avec mapsf
+
+```{r}
+mf_init(mymap,theme = "agolalight")
+
+mf_map(mymap, 
+       type="base",
+       col = "lightyellow",
+       add=T)
+
+mf_label(mymap,
+         var = "NOM_COM",
+         cex=0.6,
+         overlap = F,
+         col="red")
+
+mf_layout(title = "Zone d'étude",
+          credits = "C. Grasland - Cours de Datamining 2025")
+```
+
+
+
+
+### Distribution de la population
+
+Nous créons une fonction qui permet de préparer facilement un fichier de points localisés au centre des grilles, valués par une population, avec deux systèmes de coordonnées projetées ou non projetées.
+
+```{r}
+extract_pop<- function(mypop = gridpop,
+                       mycom = c("94071"),
+                       mysize = "Ind",
+                       myproj = 2154) {  
+
+## Sélectionne les points de grille et les masses
+pop <- mypop %>% filter(Depcom %in% mycom) %>%  # sélection des communes
+                select(Mi = mysize) %>%            # sélection de la masse
+                st_transform(crs=myproj) %>%       # projection
+                st_centroid()                    # calcul des centres
+
+## Ajoute un identifiant
+pop$i<-1:nrow(pop)
+
+## Ajoute les coordonnées projetées (pour mapsf)
+coo<-st_coordinates(pop)
+pop$Xi<-coo[,1]
+pop$Yi<-coo[,2]
+
+## Ajoute les coordonnées non projetées (pour leaflet)
+coo2<-st_coordinates(st_transform(pop,crs=4326))
+pop$LONi<-coo2[,1]
+pop$LATi<-coo2[,2]
+
+## Réordonne les variables
+pop <- pop %>% select(i,Mi, Xi,Yi,LONi,LATi,geometry)
+
+## renvoie le résultat
+return(pop)
+}
+
+
+```
+
+Nous essayons d'appliquer notre fonction sur la distribution de la population de 6-10 ans de notre zone d'étude
+
+```{r}
+mypop<-extract_pop(mypop = gridpop,
+                   mycom = selcom,
+                   mysize = "Ind_6_10",
+                   myproj = 2154)
+kable(head(mypop))
+```
+
+On essaye maintenant de représenter la distribution des enfants de 6-10 ans avec mapsf :
+
+```{r}
+mf_init(mymap, 
+       theme = "agolalight")
+
+mf_map(mymap, 
+       theme = "agolalight",
+       type="base",
+       col = "gray90",
+       add=T)
+
+mf_map(mypop,
+       type="prop",
+       var = "Mi",
+       inches = 0.07,
+       symbol = "square",
+       col = "lightyellow",
+       )
+
+mf_label(mymap,
+         var = "NOM_COM",
+         cex=0.4,
+         overlap=F,
+         col="blue")
+
+mf_layout(title = "Population de 6-10 ans",
+          frame = T,
+          credits = "C. Grasland - Cours de Datamining 2025",
+          arrow = F)
+```
+
+### Localisation des commerces et services
+
+Nous créons une fonction qui permet d'extraire un type particulier d'équipement à destination de la population précédemment définie. Dans le cas des 6-10 ans, on va positionner les écoles primaires de la zone d'étude.
+
+
+```{r}
+extract_equ<- function(equip = bpe,
+                       mycom = c("94071"),
+                       myequ = "C104",
+                       myproj = 2154) {  
+
+## Sélectionne les points de grille et les masses
+equ <- equip %>% filter(DEPCOM %in% mycom) %>%  # sélection des communes
+               filter(TYPEQU == myequ)%>%
+               mutate(Ej = 1) %>%            # sélection de l'équipement
+               st_transform(crs=myproj) %>%       # projection
+               st_centroid()                    # calcul des centres
+
+## Ajoute un identifiant
+equ$j<-1:nrow(equ)
+
+## Ajoute les coordonnées projetées (pour mapsf)
+coo<-st_coordinates(equ)
+equ$Xj<-coo[,1]
+equ$Yj<-coo[,2]
+
+## Ajoute les coordonnées non projetées (pour leaflet)
+coo2<-st_coordinates(st_transform(equ,crs=4326))
+equ$LONj<-coo2[,1]
+equ$LATj<-coo2[,2]
+
+## Réordonne les variables
+equ <- equ %>% select(j,Ej, Xj,Yj,LONj,LATj,geometry)
+
+## renvoie le résultat
+return(equ)
+}
+
+
+
+
+```
+
+Nous essayons d'appliquer notre fonction sur la distribution des écoles élémentaires  de notre zone d'étude
+
+```{r}
+myequ<-extract_equ(equip = bpe,        
+                   mycom = selcom,
+                   myequ = "C104",
+                   myproj = 2154)
+
+kable(head(myequ))
+```
+
+
+On essaye maintenant de représenter la distribution des écoles par rapport à celle des élèves avec mapsf :
+
+```{r}
+mf_init(mymap, 
+       theme = "agolalight")
+
+mf_map(mymap, 
+       theme = "agolalight",
+       type="base",
+       col = "gray90",
+       add=T)
+
+mf_map(mypop,
+       type="prop",
+       var = "Mi",
+       symbol="square",
+       inches = 0.08,
+       col = "lightyellow",
+       leg_pos = "left",
+       leg_title = "Population"
+       )
+
+mf_map(myequ,
+       type="prop",
+       var = "Ej",
+       symbol = "circle",
+       inches = 0.02,
+       col = "red",
+       leg_pos="topleft",
+       leg_title = "Equipement"
+       )
+
+mf_label(mymap,
+         var = "NOM_COM",
+         cex=0.4,
+         overlap=F,
+         col="blue")
+
+mf_layout(title = "Ecoles élementaires et pop. de 6-10 ans",
+          frame = T,
+          credits = "C. Grasland - Cours de Datamining 2025",
+          arrow = F)
+```
+
+### Une fonction pour les gouverner tous
+
+On reprend le programme précédent pour en faire une fonction de cartographie semi-automatique :
+
+```{r}
+map_pop_equ <- function(map = mymap,
+                        nommap = "NOM_COM",
+                        pop = mypop,
+                        nompop = "Population",
+                        equ = myequ,
+                        nomequ = "Equipement",
+                        titre = "Population et équipement",
+                        source = "Cours de DataMining 2022"
+                           ){
+mf_init(map, 
+       theme = "agolalight")
+
+mf_map(map, 
+       theme = "agolalight",
+       type="base",
+       col = "gray90",
+       add=T)
+
+mf_map(pop,
+       type="prop",
+       var = "Mi",
+       symbol="square",
+       inches = 0.08,
+       col = "lightyellow",
+       leg_pos = "topright",
+       leg_title = nompop
+       )
+
+mf_map(equ,
+       type="prop",
+       var = "Ej",
+       symbol = "circle",
+       inches = 0.02,
+       col = "red",
+       leg_pos="topleft",
+       leg_title = nomequ
+       )
+
+if(is.na(nommap)==FALSE) { 
+         mf_label(map,
+         var = nommap,
+         cex=0.4,
+         overlap=F,
+         col="blue")}
+
+mf_layout(title = titre,
+          frame = T,
+          credits = source,
+          arrow = F)  
+}
+```
+
+### Test des fonctions
+
+Pour tester nos différentes fonction, nous allons les appliquer aux cas d'une cartographie de la localisation des pharmacies de la rive gauche de Paris par rapport à l'ensemble de la population
+
+```{r}
+selcom<-c("75105","75106","75107", "75113","75114","75115")
+selequ<-"D307"
+selpop<-"Ind"
+
+
+mymap2<-extract_map(mapcom=mapcom,mycom = selcom, myproj = 2154)
+myequ2<-extract_equ(equip = bpe, mycom = selcom,myproj = 2154,myequ = "D307" )
+mypop2<-extract_pop(mypop = gridpop, mycom = selcom,myproj = 2154, mysize = "Ind")
+
+
+map_pop_equ(map = mymap2,
+            nommap = NA,
+            pop = mypop2,
+            nompop = "Population totale",
+            equ = myequ2,
+            nomequ = "Pharmacies",
+            titre = "Les pharmacies de Paris Rive Gauche")
+```
+
+
+
+
+
+# **4. Accessibilité spatiale**
+
+On va s'intéresser ici à la distance minimale d'accès à un service. Soit de façon purement géométrique en considérant la distance de chaque point au service. Soit de façon opérationelle en considérant la distance de la population concernée au service 
+
+On commence par examiner la distance à l'école la plus proche en fonction de la localisation spatiale c'est-à-dire de la position en un point habité ou non du territoire.
+
+### Etape 1 : Création d'une grille de points
+
+On définit un contour de la zone d'étude recouvrant tous les points pour lesquels on souhaite mesurer l'accessiblité 
+
+```{r}
+mycont<-mymap %>% summarize() %>% st_as_sf()
+
+```
+
+Puis on remplit ce contour d'une grille régulière de points espacés ici de 200 m. On pourrait prendre une grille plus fine (100 m) mais ce n'est pas très utile puisque la population est connue par grille de 1km de côté. De plus, une grille fine peut accroître beaucoup le temps de calcul voire faire planter l'ordinateur par saturation de la mémoire. Donc prudence avec ce paramètre, surtout si on prend un territoire étendu. En effet une commune de 5 km2 nécessitera 5000/500 x 1000/500 = 10x2 = 20 points pour une grille de 500 m mais 5000/200 x 1000/200 = 25 x 5 = 125 points pour une grille de 200 m et 5000/100 x 1000/100 = 50 x 10  = 500 points pour une grille de 100 m.
+
+
+```{r}
+mygrid <- create_grid(x = mycont, res = 200)
+
+```
+
+### Etape 2 : Calcul des distances minimales
+
+On calcule l'accessibilité des points de la grille à l'école la plus proche en calculant la matrice de distance entre tous les points de grille (en ligne) et tous les équipements (en colonne) puis en retenant la distance la plus courte (minimum de chaque ligne de la matrice).
+
+```{r}
+ d <- create_matrix(x = mygrid, y = myequ)
+mygrid$distmin<-apply(d,1,min)
+mf_map(mygrid, type="choro",var="distmin")
+```
+
+
+### Etape 3 : Calcul des lignes d'isopotentiel
+
+On choisit des seuils de distance correspondant aux valeurs de distance que l'on souhaite représenter par des isolignes et on extrait uniquement les surfaces comprises dans la zone d'étude
+
+```{r}
+mybreaks <-seq(0,2000,200)
+iso<-equipotential(mygrid, var="distmin", breaks=mybreaks,mask = mycont)
+mf_map(iso, type="base",border="red")
+```
+
+### Etape 4 : Assemblage de la carte 
+
+On réalise finalement une jolie carte en combinant différentes couches à l'aide de mapsf : 
+
+```{r}
+mf_init(mymap, 
+       theme = "agolalight")
+
+mf_map(x = iso, var = "max", type = "choro",
+       breaks=mybreaks,
+       pal = hcl.colors(10, 'Geyser'),
+       lwd = .2,
+       border = "#121725",
+       leg_pos = "topright",
+       leg_val_rnd = 0,
+       leg_title = "Distance \n(en mètres) ",
+       add=T
+       )
+
+mf_map(mymap, 
+       theme = "agolalight",
+       type="base",
+       col = NA,
+       border="black",
+       add=T)
+
+mf_map(myequ,
+       type="prop",
+       var = "Ej",
+       symbol = "circle",
+       inches = 0.02,
+       col = "red",
+       leg_pos = "topleft",
+       leg_title = "Ecole"
+       )
+
+mf_layout(title = "Accessibilité aux écoles élémentaires",
+          frame = T,
+          credits = "C. Grasland - Cours de Datamining 2022",
+          arrow = F)
+
+mf_label(mymap,
+         var = "NOM_COM",
+         cex=0.4,
+         overlap=F,
+         col="blue")
+```
+
+### Etape 5 : création d'une fonction
+
+On va reprendre toutes les étapes dans une fonction : 
+
+```{r}
+map_equ_dist <- function(map = mymap,
+                              nommap = NA,
+                              equ = myequ,
+                              nomequ = "Equipement",
+                              myres = 200,
+                              mybreaks = mybreaks,
+                              mypal = mypal,
+                              titre = "Accessibilité",
+                              source = "Cours de DataMining 2022"){
+
+
+  
+  
+  mycont<-map %>% summarize() %>% st_as_sf()
+  mygrid <- create_grid(x = mycont, res = myres)
+  d <- create_matrix(x = mygrid, y = equ)
+  mygrid$distmin<-apply(d,1,min)
+  iso<-equipotential(mygrid, var="distmin", breaks=mybreaks,mask = mycont)
+  
+  mf_init(map, 
+       theme = "agolalight")
+
+mf_map(x = iso, var = "max", type = "choro",
+       breaks=mybreaks,
+       pal = mypal,
+       lwd = .2,
+       border = "#121725",
+       leg_pos = "topright",
+       leg_val_rnd = 0,
+       leg_title = "Distance \n(en mètres) ",
+       add=T
+       )
+
+mf_map(map, 
+       theme = "agolalight",
+       type="base",
+       col = NA,
+       border="black",
+       add=T)
+
+mf_map(equ,
+       type="prop",
+       var = "Ej",
+       symbol = "circle",
+       inches = 0.02,
+       col = "red",
+       leg_pos="topleft",
+       leg_title = nomequ
+       )
+
+mf_layout(title = titre,
+          frame = T,
+          credits = source,
+          arrow = F)
+
+if(is.na(nommap)==FALSE) { 
+         mf_label(map,
+         var = nommap,
+         cex=0.4,
+         overlap=F,
+         col="blue")}
+  
+}
+```
+
+
+Essayons de faire une carte de l'accessibilité aux pharmaciesde Paris Rive Gauche
+
+```{r}
+selcom<-c("75105","75106","75107", "75113","75114","75115")
+mybreaks <- c(0,100, 200, 300, 400, 500, 600,700)
+mypal <-hcl.colors(7, "Geyser")
+
+myequ2<-extract_equ(equip = bpe, mycom = selcom,myproj = 2154,myequ = "D307" )
+mypop2<-extract_pop(mypop = gridpop, mycom = selcom,myproj = 2154, mysize = "Ind")
+map_equ_dist(map = mymap2,
+                  equ = myequ2,
+                  nomequ = "Pharmacies",
+                  myres = 100,
+                  mybreaks = mybreaks,
+                  mypal = mypal,
+                  titre = "Accessibilité aux Pharmacies de Paris Rive Gauche",
+                  source = "Source : C. Grasland, cours de Data Mining 2022")
+```
+
+
+# **5. Inégalités d'accès**
+
+Dans le cas précédent, on ne s'intéressait pas à la position des habitants par rapport aux services. Mais il faut évidemment en tenir compte puisque l'absence de service n'est pas un problème dans les zones inhabitées comme la forêt Notre-Dame au sud-est de la carte. Ce qu'il faut plutôt identifier dans une logique de service public ce sont les zones habitées mais éloignées des services indispensables. 
+
+### Etape 1 : Calcul des distances de la population à un service
+
+On calcule l'accessibilité des habitants **concernés** à l'équipement la plus proche. Dans notre exemple des écoles primaires, la population concernée est la tranche des 6-10 ans. On va donc calculer la distance de chaque points habité à l'école la plus proche.
+
+```{r}
+ d <- create_matrix(x = mypop, y = myequ)
+mypop$distmin<-apply(d,1,min)
+
+# carto rapide
+mf_map(mymap)
+mf_map(mypop, type="prop_choro",var=c("Mi","distmin"), inches=0.06,leg_pos = c("topright","topleft"))
+```
+
+### Etape 2 : Distribution de la population / distance
+
+On réalise une courbe de fréquence cumulée indiquant la part de la population ayant accès au service en fonction de la distance que cette population est prête à franchir. On calcule par ailleurs la distance moyenne de la population au service concerné.
+
+```{r}
+tab<-st_drop_geometry(mypop) %>% 
+      select(Mi,distmin) %>%  
+      arrange(distmin) %>%
+      mutate(freq = 100*Mi/sum(Mi))%>%
+      mutate(freqcum = cumsum(freq))
+
+distmoy<-sum(tab$distmin*tab$Mi)/sum(tab$Mi)
+distmax <- max(tab$distmin)
+
+ggplot(tab, aes(x=distmin, y=freqcum)) + 
+       geom_line(col="red") +
+       scale_x_continuous("Distance (en mètres)") +
+       scale_y_continuous("Population cumulée (en %)") + 
+       ggtitle(label = "Accessibilité au service en fonction de la distance",
+               subtitle = paste("(Distance moyenne = ", round(distmoy,0), "mètres)"))+ 
+      geom_vline(xintercept = distmoy, color="blue")+
+       theme_light()
+        
+
+```
+
+### Etape 3 : création d'une fonction graphique
+
+On automatise la création d'une graphique à l'aide d'une fonction : 
+
+```{r}
+graph_pop_equ_dist <- function(pop = mypop,
+                          equ = myequ) {
+   
+  # Matrice de distance
+  d <- create_matrix(x = pop, y = equ)
+  pop$distmin<-apply(d,1,min)
+  
+  # Tableau des fréquences cumulées
+  tab<-st_drop_geometry(pop) %>% 
+      select(Mi,distmin) %>%  
+      arrange(distmin) %>%
+      mutate(freq = 100*Mi/sum(Mi))%>%
+      mutate(freqcum = cumsum(freq))
+  
+  # Résumés statistiques
+    distmoy<-sum(tab$distmin*tab$Mi)/sum(tab$Mi)
+    distmax <- max(tab$distmin)
+  
+  # Graphique
+    ggplot(tab, aes(x=distmin, y=freqcum)) + 
+               geom_line(col="red") +
+               scale_x_continuous("Distance (en mètres)",limits = c(0,4*distmoy)) +
+               scale_y_continuous("Population cumulée (en %)") + 
+               ggtitle(label = "Accessibilité au service en fonction de la distance",
+               subtitle = paste("(Distance moyenne = ", round(distmoy,0), "mètres)"))+ 
+               geom_vline(xintercept = distmoy, color="blue")+
+               theme_light()
+}
+
+# graph_pop_equ(mypop,myequ)
+```
+
+On vérifie le fonctionnement de la fonction de la fonction sur l'exemple des pharmacies de Paris rive gauche où l'on observe une distance moyenne de 132 mètres !
+
+```{r}
+selcom<-c("75105","75106","75107", "75113","75114","75115")
+myequ2<-extract_equ(equip = bpe, mycom = selcom,myproj = 2154,myequ = "D307" )
+mypop2<-extract_pop(mypop = gridpop, mycom = selcom,myproj = 2154, mysize = "Ind")
+graph_pop_equ_dist(mypop2,myequ2)
+```
+
+
+### Etape 4 : Cartographie des inégalités d'accès au service
+
+En prenant l'accessibilité moyenne comme référence, on détermine les population situées à deux, trois ou quatre fois cette distance.
+
+```{r}
+mf_init(mymap, 
+     theme = "agolalight")
+
+mf_map(mymap, 
+       theme = "agolalight",
+       type="base",
+       col = "gray90",
+       border="black",
+       add=T)
+
+mf_map(x = mypop, 
+       var = c("Mi","distmin"),
+       type = "prop_choro",
+       breaks= c(0,distmoy,distmoy*2,distmoy*3,distmoy*4,distmax ),
+       pal = c("lightgreen","lightyellow","orange","red","chocolate4"),
+       symbol="square",
+       inches = 0.08,
+       leg_pos = c("topleft","topright"),
+       leg_val_rnd = c(0,0),
+       leg_title = c("Population","Distance \n(en mètres)") ,
+       add=T
+       )
+
+
+
+mf_map(myequ,
+       type="prop",
+       var = "Ej",
+       symbol = "circle",
+       inches = 0.02,
+       col = "black",
+       leg_pos = NA,
+       )
+
+mf_layout(title = "Inégalité d'accès au service",
+          frame = T,
+          credits = "C. Grasland - Cours de Datamining 2022",
+          arrow = F)
+
+mf_label(mymap,
+         var = "NOM_COM",
+         cex=0.4,
+         overlap=F,
+         col="blue")
+
+```
+
+On peut désormais repérer facilement :
+
+- *les populations favorisées (en vert)* avec une distance inférieure à la moyenne
+- *les population légèrement défavorisées (en jaune)* avec une distance comprise entre une et deux fois la moyenne.
+- *les populations défavorisées (en orange)* avec uen distance deux à trois fois supérieure à la moyenne
+- *les populations très défavorisées (en rouge ou brun)* avec une distance plus de trois fois supérieure à la moyenne
+
+A titre d'exemple, la partie sud de la commune du Plessis-Trévise et la partie orientale de la commune de La-Queue-en-Brie apparaissement singulièrement mal équipées en écoles (si la base BPE est exacte). Inversement, on reprère dans le centre de Sucy-en-Brie une zone bien désservie avec deux écoles, alors même qu'il y a peu d'élèves à proximité. Ce qui s'explique sans doute par l'histoire de la commune (anciennes écoles du village construites avant le développement des grands-ensembles situés en périphérie de la commune).
+
+### Etape 5 : création d'une fonction cartographique
+
+```{r}
+map_pop_equ_dist <- function(map = mymap,
+                           nommap = NA,
+                           equ = myequ,
+                           nomequ = "Equipement",
+                           pop = mypop,
+                           nompop = "Population",
+                           titre = "Accessibilité sociale",
+                           source = "Cours de DataMining 2022") {
+   
+  # Matrice de distance
+  d <- create_matrix(x = pop, y = equ)
+  pop$distmin<-apply(d,1,min)
+  
+  # Tableau des fréquences cumulées
+  tab<-st_drop_geometry(pop) %>% 
+      select(Mi,distmin) %>%  
+      arrange(distmin) %>%
+      mutate(freq = 100*Mi/sum(Mi))%>%
+      mutate(freqcum = cumsum(freq))
+  
+  # Paramètres statistiques utiles
+    distmoy<-sum(tab$distmin*tab$Mi)/sum(tab$Mi)
+    distmax <- max(tab$distmin)
+  
+    # Carte
+    mf_init(map, 
+     theme = "agolalight")
+
+mf_map(map, 
+       theme = "agolalight",
+       type="base",
+       col = "gray90",
+       border="black",
+       add=T)
+
+mf_map(x = pop, 
+       var = c("Mi","distmin"),
+       type = "prop_choro",
+       breaks= c(0,distmoy,distmoy*2,distmoy*3,distmoy*4,distmax ),
+       pal = c("lightgreen","lightyellow","orange","red","chocolate4"),
+       symbol="square",
+       inches = 0.08,
+       leg_pos = c("topleft","topright"),
+       leg_val_rnd = c(0,0),
+       leg_title = c("Population","Distance \n(en mètres)") ,
+       add=T
+       )
+
+
+
+mf_map(equ,
+       type="prop",
+       var = "Ej",
+       symbol = "circle",
+       inches = 0.02,
+       col = "black",
+       leg_pos = NA,
+       )
+
+mf_layout(title = "Inégalités d'accès à l'équipement",
+          frame = T,
+          credits = "C. Grasland - Cours de Datamining 2022",
+          arrow = F)
+
+mf_label(map,
+         var = "NOM_COM",
+         cex=0.4,
+         overlap=F,
+         col="blue")
+    
+}
+
+# carto_pop_equ(map = mymap,equ = myequ,pop = mypop)
+```
+
+
+Comme d'habitude, on vérifie la fonction sur un deuxième exemple, celui des pharmacies de Paris Rive Gauche
+
+```{r}
+selcom<-c("75105","75106","75107", "75113","75114","75115")
+selequ<-"C301"
+selpop<-"Ind"
+
+
+mymap2<-extract_map(mapcom=mapcom,mycom = selcom, myproj = 2154)
+myequ2<-extract_equ(equip = bpe, mycom = selcom,myproj = 2154,myequ = "D307" )
+mypop2<-extract_pop(mypop = gridpop, mycom = selcom,myproj = 2154, mysize = "Ind")
+
+
+map_pop_equ_dist(map = mymap2,
+              pop = mypop2,
+              equ = myequ2,
+              nomequ = "Pharmacie",
+              titre = "Inégalité d'accès aux lycées de Paris R.G.",
+              source = "Source : C. Graland, cours de Data Mining 2022")
+```
+
+Bien que ce ne soit pas l'objet de l'analyse en terme de service public, on remarque quelques localisations potentiellement intéressantes sur le plan commercial. C'est notamment le cas dans le 13e arrondissement aux abords de l'avenue de France où la population a récemment augmenté. Mais il est probable que des pharmaciens avisés ont déjà saisi l'opportunité ...
+
+# **6. Création d'une application shiny**
+
+Nous avons mis au point tout un ensemble de fonctions qui vont permettre de créer facilement une application shiny.
+
+### Global
+
+On commence par charger les fonctions élaborées précédemment et stockées dans le fichier access.R. Celui-ci contient également les différents packages à charger.
+
+
+Puis on prépare des listes de communes, populations et équipements que l'on souhaite utiliser dans l'interface
+
+
+```{r, eval=FALSE}
+##### (1) Global ######
+
+## Load packages and functions 
+source("pgm/access.R")
+
+## Load data
+base_map<-readRDS("data/mapcom.RDS")
+base_pop<-readRDS("data/gridpop.RDS")
+base_equ<-readRDS("data/bpe.RDS")
+
+##  Define list of choices
+
+liste_com<-base_map$CODE_COM
+names(liste_com)<-base_map$NOM_COM
+
+liste_pop <-c("Ind", "Ind_4_5","Ind_6_10","Ind_11_17","Ind_18_24")
+names(liste_pop)<-c("Population totale",
+                    "Population de 4-5 ans",
+                    "Population de 6-10 ans",
+                    "Population de 11-17 ans",
+                    "Population de 18-24 ans")
+
+liste_equ <- c("C101","C104","C201","C301", "C302")
+names(liste_equ)<-c("Ecole maternelle",
+                    "Ecole élementaire",
+                    "Collège",
+                    "Lycée d'enseignement général",
+                    "Lycée professionnel")
+
+```
+
+
+### Interface
+
+On construit une page classique avec une sidebar et un mainpanel.
+
+On introduit trois widgets pour la sélection des données et deux widgets pour le réglage de paramètres cartographiques.
+
+```{r, eval=FALSE}
+
+ui <- fluidPage(
+    # Titre de l'application
+    titlePanel("Les équipements scolaires des communes du Grand Paris"),
+    
+    # Définition du Widget - ici un slider en vue de construire un histogramme
+    sidebarLayout(
+        sidebarPanel(
+   
+## (2.1) Fonctions de choix des données            
+            selectInput(inputId = "com",
+                        label = "Choix de la commune",
+                        choices = liste_com,
+                        selected = "94071",
+                        multiple = TRUE
+            ),
+            
+            selectInput(inputId = "equ",
+                        label = "Choix de l'équipement",
+                        choices = liste_equ,
+                        selected = "C104"
+            ),
+            
+            selectInput(inputId = "pop",
+                        label = "Choix de la population concernée",
+                        choices = liste_pop,
+                        selected = "Ind_6_10"
+            ),
+            
+## (2.2) Paramètres de visualisation        
+            sliderInput(inputId = "lim",
+                        label = "Plage de distances : ",
+                        min = 0,
+                        max = 2500,
+                        step = 100,
+                        value = c(0,2000) ),
+ 
+         
+            
+            sliderInput(inputId = "res",
+                        label = "Précision du tracé ",
+                        min = 50,
+                        max = 500,
+                        step = 50,
+                        value = 200)
+        ),
+        mainPanel(
+            plotOutput("mapPlot1",height = "400px"),
+            plotOutput("graphPlot",height = "400px"),
+            plotOutput("mapPlot2",height = "400px"),
+       
+        )
+    )
+)
+
+```
+
+### Server (version non réactive)
+
+On construite une première version de la partie server où chaque fonction doit effectuer un prétraitement des données :
+
+```{r, eval=FALSE}
+server <- function(input, 
+                   output) {
+    
+    output$mapPlot1 <-renderPlot({
+        
+        mymap<-extract_map(mapcom=base_map,mycom = input$com, myproj = 2154)
+        myequ<-extract_equ(equip = base_equ, mycom = input$com,myproj = 2154,myequ = input$equ )
+        step<-(input$lim[2]-input$lim[1])/10
+        mybreaks <- seq(from=input$lim[1],to= input$lim[2],by=step)
+        mypal <-hcl.colors(10, "Geyser")
+        map_equ_dist(map = mymap,
+                     equ = myequ,
+                     myres = input$res,
+                     mybreaks=mybreaks,
+                     mypal = mypal)
+        
+    })
+    
+    
+    output$graphPlot <-renderPlot({
+        
+        myequ<-extract_equ(equip = base_equ, mycom = input$com,myproj = 2154,myequ = input$equ )
+        mypop<-extract_pop(mypop = base_pop, mycom = input$com,myproj = 2154, mysize = input$pop)
+        graph_pop_equ_dist(pop = mypop,
+                           equ = myequ)
+        
+    })
+    
+    output$mapPlot2 <-renderPlot({
+        
+        mymap<-extract_map(mapcom=base_map,mycom = input$com, myproj = 2154)
+        myequ<-extract_equ(equip = base_equ, mycom = input$com,myproj = 2154,myequ = input$equ )
+        mypop<-extract_pop(mypop = base_pop, mycom = input$com,myproj = 2154, mysize = input$pop)
+        map_pop_equ_dist(map = mymap,
+                         pop = mypop,
+                         equ = myequ)
+        
+    })
+    
+    
+}
+```
+
+
+### Server (version réactive)
+
+Pour éviter de refaire les même calculs on rend réactifs les tableaux partagés par plusieurs fonctions.
+
+```{r, eval=FALSE}
+server <- function(input, 
+                   output) {
+
+ ## (3.1) Tabelaux réactifs   
+    mymap<-reactive({
+        tab<-extract_map(mapcom=base_map,mycom = input$com, myproj = 2154)
+        return(tab)
+    })
+    
+    mypop<-reactive({
+        tab<-extract_pop(mypop = base_pop, mycom = input$com,myproj = 2154, mysize = input$pop)
+        return(tab)
+    })
+    
+    myequ<-reactive({
+        tab<-extract_equ(equip = base_equ, mycom = input$com,myproj = 2154,myequ = input$equ )
+        return(tab)
+    })
+    
+    mybreaks<-reactive({
+        step<-(input$lim[2]-input$lim[1])/10
+        vec<- seq(from=input$lim[1],to= input$lim[2],by=step)
+        return(vec)
+    })
+    
+    
+    
+ ## (3.2) Fonctions graphiques   
+    output$mapPlot1 <-renderPlot({
+        
+
+        mypal <-hcl.colors(10, "Geyser")
+        map_equ_dist(map = mymap(),
+                     equ = myequ(),
+                     myres = input$res,
+                     mybreaks=mybreaks(),
+                     mypal = mypal)
+        
+    })
+    
+    
+    output$graphPlot <-renderPlot({
+
+        graph_pop_equ_dist(pop = mypop(),
+                           equ = myequ())
+        
+    })
+    
+    output$mapPlot2 <-renderPlot({
+
+        map_pop_equ_dist(map = mymap(),
+                         pop = mypop(),
+                         equ = myequ())
+        
+    })
+    
+    
+}
+
+```
+
+### Améliorations possibles
+
+On pourrait introduire un bouton qui permet de ne recalculer les cartes et graphiques que lorsque l'on a terminé la sélection des communes.
+
+Par ailleurs on peut considérablement améliorer le design en proposant des fonctions meilleures, **sans que cela modifie la structure de l'interface shiny**.  Vouspouvez par exemple revoir les couleurs par défaut des palettes...
+

@@ -34,6 +34,10 @@ website:
             text: "Agregation"
           - href: 33-JOCAS_ParisPC.qmd
             text: "Données JOCAS Paris PC"
+      - text: "Analyse Spatiale"
+        menu:
+          - href: 41-ANSPA-access.qmd
+            text: "Accessibilité"
 
     right: 
       - icon: github # add icons as navbar buttons
