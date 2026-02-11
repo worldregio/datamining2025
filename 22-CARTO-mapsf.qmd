@@ -6,8 +6,6 @@ embed-resources: true
 ---
 
 
-Télécharger le [dossier projet exos2](https://github.com/worldregio/datamining2025/raw/main/exos/exo2.zip) pour suivre et executer les commandes.
-
 
 
 ```{r  include=FALSE}
@@ -105,7 +103,7 @@ mf_map(map_dep,  type = "base",
        add = TRUE)
 
 mf_layout(title = "Theme dark", 
-          credits = "Sources : IGN et INSEE")
+          credits = "Sources : IGN ")
 ```
 
 Autre exemple
@@ -126,7 +124,7 @@ mf_map(map_dep,  type = "base",
        add = TRUE)
 
 mf_layout(title = "Theme agolalight", 
-          credits = "Sources : IGN et INSEE")
+          credits = "Sources : IGN")
 ```
 
 ### Ajout de texte
@@ -158,9 +156,9 @@ mf_label(map_dep,
          overlap = FALSE)
 
 # Ajoute un cadre, un titre et des sources
-mf_layout(title = "Communes et Iris de Paris + PC en 2019", 
+mf_layout(title = "Communes et Iris de Paris + PC en 2021", 
           frame = TRUE,
-          credits = "Sources : IGN et INSEE")
+          credits = "Sources : IGN ")
 ```
 
 
@@ -211,9 +209,9 @@ mf_map(map_iris, var = "ACT",type = "prop",
   inches = 0.1, col = "red",leg_pos = "left",  
   leg_title = "Nombre d'actifs", add=TRUE)
 
-mf_layout(title = "Distribution des actifs en 2019", 
+mf_layout(title = "Distribution des actifs en 2021", 
           frame = TRUE,
-          credits = "Sources : IGN et INSEE")
+          credits = "Sources : IGN et INSEE RP 2021")
 
 ```
 
@@ -272,21 +270,23 @@ On peut arriver à une carte beaucoup plus satisfaisante en contrôlant l'ensemb
 
 ```{r }
 # Choisir les classes et la palette
-mybreaks = c(0, 4, 6, 8, 10, 12, 14, 16, 18,20,30)
+mybreaks = c(0, 4, 6, 8, 10, 12, 14, 16, 18,20,50)
 
 # Tracer la carte choroplèthe
 mf_map( map_iris, var = "TxCHO",type = "choro",
   breaks = mybreaks,pal = mypal,
-  border="white",col_na = "gray80",
+  border="white",
+  lwd=0.1,
+  col_na = "gray80",
  leg_title = "% chômeurs",
  leg_val_rnd = 0)
 # Ajouter les contours des communes
 mf_map(map_com, type = "base", col = NA,
        border="black",lwd=1,add = TRUE)
 # Ajouter un cadre, un titre et des sources
-mf_layout(title = "Taux de chômage en 2019", 
+mf_layout(title = "Taux de chômage en 2021", 
           frame = TRUE,
-          credits = "Sources : IGN et INSEE")
+          credits = "Sources : IGN et INSEE RP 2021")
 ```
 
 ## Carte stock + choroplèthe
@@ -296,7 +296,7 @@ Mais on peut aussi utiliser le type `prop_choro`
 
 ```{r }
 mf_theme("agolalight")
-mybreaks = c(0, 4, 6, 8, 10, 12, 14, 16, 18,20,30)
+mybreaks = c(0, 4, 6, 8, 10, 12, 14, 16, 18,20,50)
 
 mf_map(map_iris, type = "base",  
        col = "gray80",border="white", lwd=0.3)
@@ -308,8 +308,8 @@ mf_prop_choro( x = map_iris,  var = c("ACT", "TxCHO"),
   leg_pos = c("right", "left"),leg_val_rnd = c(0,0),
   leg_title = c("nb. actifs", "% chômeurs"),
   add = TRUE)
-mf_layout(title = "Les actifs au chômage  au RP 2019",
-        frame = TRUE, credits = "Sources : IGN et INSEE")
+mf_layout(title = "Les actifs au chômage en 2021",
+        frame = TRUE, credits = "Sources : IGN et INSEE RP 2021")
 ```   
 
 
@@ -344,7 +344,7 @@ matpct<-100*prop.table(mat,1)
 # Calcule l'AFC puis la CAH
 library(FactoMineR)
 acp<-PCA(matpct)
-cah<-HCPC(acp,nb.clust =4)
+cah<-HCPC(acp,nb.clust =5)
 
 # Récupère les résultats
 tab$typo <- cah$data.clust$clust
@@ -366,19 +366,21 @@ map_com_typo <-map_com %>% select(com_code,com_name, geometry) %>%
 
 # Transforme la typo en facteur
 map_com_typo$typoqual<-as.factor(map_com_typo$typo)
-levels(map_com_typo$typoqual) <- c("(1) Chômeurs et inactifs",
-                                   "(2) Profil moyen",
-                                   "(3) Actifs en emploi",
-                                   "(4) Etudiants et retraités")
+levels(map_com_typo$typoqual) <- c("(1) Etudiants ++",
+                                   "(2) Retraités ++ Actifs +",
+                                   "(3) Actifs ++",
+                                   "(4) Chômeurs + Autres +",
+                                   "(4) Autres ++ Chômeurs ++")
 
 # Carte de typologie
 mf_theme("darkula")
 mf_map(map_com_typo, 
        type = "typo",
        var = "typoqual",
-       pal= c("orange","lightyellow","lightgreen","lightblue"),
+       pal= c("lightblue","lightgreen","lightyellow","pink","red"),
        leg_title = "Spécificités",
-       col_na = "gray70",
+       col_na = "white",
+       leg_pos = "left",
        leg_no_data = "Données manquantes")
 # Ajoute les contours des départements
 mf_map(map_dep,  type = "base", 
@@ -391,8 +393,8 @@ mf_label(map_dep,
          col="black",
          overlap = FALSE)
 
-mf_layout(title = "Typologie des profls activités des communes de Paris et Petite Couronne en 2019",
-        frame = TRUE, credits = "Sources : IGN et INSEE RP 2019",
+mf_layout(title = "Typologie des profls activités des communes de Paris et Petite Couronne en 2021",
+        frame = TRUE, credits = "Sources : IGN et INSEE RP 2021",
         arrow = F
         )
 

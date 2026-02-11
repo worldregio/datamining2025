@@ -11,10 +11,6 @@ embed-resources: true
 
 
 
-Télécharger le [dossier projet exos2](https://github.com/worldregio/datamining2025/raw/main/exos/exo2.zip) pour suivre et executer les commandes.
-
-
-
 ### Packages
 
 On charge les packages suivants
@@ -38,36 +34,41 @@ library(sf)
 
 ### Acquisistion du fichier INSEE individus 
 
-On constitue un fichier des individus localisés dans les communes de Paris et Petite Couronne au RP de 2019 en reprenant le programme décrit dans le [Cours n°1  de Camille Signoretto](https://camille-sisi.github.io/Data-Mining-2024/01-Base-de-donnees.html).
+On constitue un fichier des individus localisés dans les communes de Paris et Petite Couronne au RP de 2021 en reprenant le programme décrit dans le [Cours n°1  de Camille Signoretto](https://camille-sisi.github.io/Data-Mining-2026/01-Base-de-donnees.html).
 
 Le programme ci-dessous comporte la mention "eval=FALSE" car il ne dout être executé qu'une seule fois.
 
 ```{r, eval=FALSE}
-## Récupération des fichiers INSEE zippé
-## On utilise pour cela un dossier "tmp" 
-download.file(url="https://www.insee.fr/fr/statistiques/fichier/6544333/RP2019_INDCVIZA_csv.zip",
-              destfile = "ParisPC/tmp/RP2019_INDCVIZA_csv.zip")
-unzip("ParisPC/tmp/RP2019_INDCVIZA_csv.zip", exdir = "ParisPC/tmp")
 
-## Lecture du fichier individu avec fread
-library(data.table)
-RP <- fread("ParisPC/tmp/FD_INDCVIZA_2019.csv", stringsAsFactors=TRUE)
+# (1) FICHIER DE DONNEES
+download.file(url="https://www.insee.fr/fr/statistiques/fichier/8268848/RP2021_indcviza.zip",
+              destfile = "tmp/RP2021_indcviza.zip")
+
+# Le fichier est  téléchargé dans un dossier temporaire  "tmp" du projet R, on va
+# maintenant le dézipper et enregistrer les fichiers extraits dans le dossier data/RP2021.
+unzip("tmp/RP2021_indcviza.zip", exdir = "data")
+
+#library(data.table)
+RP <- fread("data/FD_INDCVIZA_2021.csv", stringsAsFactors=TRUE)
 RP <- as.data.frame(RP)
-## Selection Paris PC 
-RP <- RP %>% filter(DEPT %in% c(75, 92, 93, 94))
-saveRDS(RP, "ParisPC/data/indiv2019.RDS")
 
-## Lecture du fichier de métadonnées
-meta <- read.csv(file = 'ParisPC/tmp/Varmod_INDCVI_2019.csv',
+# Selection de Paris et PC
+RP <- RP %>% filter(DEPT %in% c("75","92","93","94"))
+
+
+saveRDS(RP, "ParisPC/RP2021/indiv2021.RDS")
+
+# (2) FICHIER DE METADONNEES
+download.file(url="https://www.insee.fr/fr/statistiques/fichier/8268848/varmod_indcvi_2021.csv",
+              destfile = "tmp/varmod_indcvi_2021.csv")
+#Lecture du fichier
+meta <- read.csv(file = "tmp/varmod_indcvi_2021.csv",
                  sep = ";",
                  encoding = "UTF-8",
                  stringsAsFactors = TRUE)
 
-## Sauvegarde des deux fichiers
-saveRDS(meta, "ParisPC/data/meta.RDS")
+saveRDS(object = meta, file = "ParisPC/RP2021/meta.RDS")
 
-## nettoyage du dossier  tmp
-unlink("ParisPC/tmp/*")
 ```
 
 ### Acquisition de la géométrie des IRIS
@@ -82,7 +83,7 @@ Comme précédemment, ce programme est à executer une seule fois d'où la menti
 ```{r, eval=FALSE}
 
 ## Lien de téléchargement IDF 2019 au forma geojson
-myurl <-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-france-iris-millesime/exports/geojson?lang=fr&refine=year%3A%222019%22&refine=reg_name%3A%22%C3%8Ele-de-France%22&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FBerlin"
+myurl <-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-france-iris-millesime/exports/geojson?lang=fr&refine=year%3A%222021%22&refine=reg_name%3A%22%C3%8Ele-de-France%22&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FBerlin"
 
 ## téléchargement et conversion au format sf
 geo<-st_read(myurl) 
@@ -166,7 +167,7 @@ Nous l'utilisons pour créer un tableau des individus par CSP simplifiées en 5 
 
 ```{r}
 # Chargement du tableau
-indiv <- readRDS("ParisPC/data/indiv2019.RDS")
+indiv <- readRDS("ParisPC/RP2021/indiv2021.RDS")
 
 # Création de CSP simplifiées
 indiv <- indiv %>% 
@@ -219,7 +220,7 @@ On reprend les programmes précédents par commune
 
 ```{r}
 # Chargement du tableau
-indiv <- readRDS("ParisPC/data/indiv2019.RDS")
+indiv <- readRDS("ParisPC/RP2021/indiv2021.Rdata")
 
 # Création de CSP simplifiées
 indiv <- indiv %>% 
