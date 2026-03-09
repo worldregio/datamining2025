@@ -220,7 +220,7 @@ On reprend les programmes précédents par commune
 
 ```{r}
 # Chargement du tableau
-indiv <- readRDS("ParisPC/RP2021/indiv2021.Rdata")
+indiv <- readRDS("ParisPC/RP2021/indiv2021.RDS")
 
 # Création de CSP simplifiées
 indiv <- indiv %>% 

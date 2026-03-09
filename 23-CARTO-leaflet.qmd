@@ -225,131 +225,199 @@ Et voila, le tour est joué. Il faut maintenant réfléchir à la façon de cons
 
 Si vous avez bien compris ce cours, vous pourrez trouver des réponses en lisant de façon autonome le reste de l'article dont nous nous somme inspiré : [Cartographie interactive : comment visualiser mes données spatiales de manière dynamique avec leaflet ?](https://thinkr.fr/cartographie-interactive-comment-visualiser-mes-donnees-spatiales-de-maniere-dynamique-avec-leaflet/) 
 
-## Preparation des données
 
-Nous allons réviser ici une certain nombre de notions vus dans les cours précédents sur l'utilisation des API et la cartographie statique. On suppose que l'on veut étudier **la distribution des restaurants à l'intérieur des différents quartiers de la commune de Grenoble*.**
 
-### Données ponctuelles sur les restaurants
 
- On choisit  d'utiliser la base SIRENE qui enregistre toutes les entreprises françaises. Grâce à la version géocodée accessible sur public.opendatasoft, on va pouvoir télécharger un fichier au format **sf** spatial features.On télécharge l'ensemble des entreprises de restaurations de Grenoble recensés dans le fichier SIRENE. 
+## B. Importation de données DVF
+
+Nous allons réviser ici une certain nombre de notions vus dans les cours précédents sur l'utilisation des API et la cartographie statique. On suppose que l'on veut étudier **la distribution des ventes immobilières à Sucy-en-Brie par quartier IRIS*.**
+
+### Récupération des données DVF par API
+
+ On choisit  d'utiliser la base des **demandes de valeurs foncières géolmcalisées** accessible par API via le site public.opendatasoft.com. La requête ci-dessous permet de demander l'ensemble des **ventes** intervenues dans la commune de **Sucy-en-Brie** en **2023**.  
 
 ```{r}
-myurl <- "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/economicref-france-sirene-v3/exports/geojson?lang=fr&refine=libellecommuneetablissement%3A%22GRENOBLE%22&refine=soussectionetablissement%3A%22Restauration%22&facet=facet(name%3D%22libellecommuneetablissement%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22soussectionetablissement%22%2C%20disjunctive%3Dtrue)&timezone=Europe%2FBerlin"
+myurl <- "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/buildingref-france-demande-de-valeurs-foncieres-geolocalisee-millesime/exports/geojson/?lang=fr&refine=date_mutation%3A2023&refine=nature_mutation%3AVente&where=%28search%28%22sucy-en-brie%22%29%29"
 
 mymap<-st_read(myurl) 
 dim(mymap)
 class(mymap)
 ```
 
-Le tableau comporte 4439 entreprises décrites par 108 variables. On trouvera la description précise de ces dernières sur le [site de documentation de la base SIRENE](https://www.sirene.fr/static-resources/documentation/v_sommaire_311.htm#33)E
+Le tableau comporte 687 ventes décrites par 46 variables. 
 
 
-On décide de sélectionner les entreprises  qui font de la restauration traditionelle (code 56.10A) ou de la restauration rapide (code 56.10B) et de ne pas conserver les autres entreprises du secteur (débits de boisson, restauration collective).
+### Sélection des ventes uniques de maisons et appartements
+
+On décide de ne conserver que les **ventes simples** de **maison** ou d'**appartement**. On utilise pour cela un programme qui sera rediscuté par la suite dans le cours de C. Signoretto.
 
 ```{r}
-restau<- mymap %>% filter(activiteprincipaleetablissement %in% c("56.10A","56.10C"),
-                          etatadministratifetablissement == "Actif")
-dim(restau)
+## Sélectionne les biens de type maisons ou appartements
+mymap <- mymap %>% filter(type_local %in% c("Maison", "Appartement"))
+
+## Calcule  le nombre de biens vendus par mutation
+nbv <- mymap %>% st_drop_geometry() %>%
+         group_by(id_mutation) %>% count()
+
+## Effectue une jointure et exclue les ventes multiples
+mymap <- mymap %>% left_join(nbv) %>% filter(n==1)
 
 ```
 
-Il reste donc 1503 entreprises pour lesquelles on va sélectionner un nombre limité de variables et leur donner des noms plus courts que ceux présents dans la base.
+Il ne reste que 244 biens correspondant à des ventes uniques de maisons ou d'appartement.
 
+### Sélection des variables intéressantes
+
+On décide de ne retenir qu'un petit nombre de variables et de les recoder pour un usage plus facile. On ajoute la variable prix au m2.
 
 ```{r}
-
-
-mapresto <-  restau %>% select(siren, 
-                             siret,
-                             type = classeetablissement,
-                             date_creation = datecreationetablissement) %>%
-                 mutate(age = as.numeric(as.Date("2025-04-01")-date_creation)/365,
-                        type = as.factor(type))
-summary(mapresto)
+mymap <- mymap %>% mutate(  adresse = paste(adresse_numero, 
+                                          adresse_nom_voie, 
+                                          code_postal, 
+                                          com_name)) %>%
+              select(id = id_mutation,
+                           adresse,
+                          code = com_code,
+                          date = date_mutation,
+                          type = type_local,
+                          prix = valeur_fonciere,
+                          sup = surface_reelle_bati,
+                          nbp = nombre_pieces_principales,
+                          ter = surface_terrain,
+                          lat = latitude,
+                          lon = longitude,
+                          )
 
 ```
 
-On examine les deux variables type et age en procédant à quelques corrections.
 
-On corrige le nom des niveaux de la variable type
+### Création d'une fonction simple
 
-```{r}
-levels(mapresto$type) <- c("Rapide","Traditionnel")
-plot(mapresto$type)
-```
 
-On examine la distribution de la variable âge
+On reprend l'ensemble de nos étapes pour créer une fonction qui extrait automatiquement les données d'une commune à une date donnée.
 
 ```{r}
-hist(mapresto$age)
+dvfcomyear <- function(mycom = "sucy-en-brie",
+                        myyear = "2023") {
+ myurl <- paste0("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/buildingref-france-demande-de-valeurs-foncieres-geolocalisee-millesime/exports/geojson/?lang=fr&refine=date_mutation%3A",myyear,"&refine=nature_mutation%3AVente&where=%28search%28%22",mycom,"%22%29%29")
+ 
+ mymap<-st_read(myurl,quiet = T) 
+ 
+ ## Sélectionne les biens de type maisons ou appartements
+mymap <- mymap %>% filter(type_local %in% c("Maison", "Appartement"))
+
+## Calcule  le nombre de biens vendus par mutation
+nbv <- mymap %>% st_drop_geometry() %>%
+         group_by(id_mutation) %>% count()
+
+## Effectue une jointure et exclue les ventes multiples
+mymap <- mymap %>% left_join(nbv) %>% filter(n==1)
+ 
+mymap <- mymap %>% mutate(  adresse = paste(adresse_numero, 
+                                          adresse_nom_voie, 
+                                          code_postal, 
+                                          com_name)) %>%
+              select(id = id_mutation,
+                           adresse,
+                          code = com_code,
+                          date = date_mutation,
+                          type = type_local,
+                          prix = valeur_fonciere,
+                          sup = surface_reelle_bati,
+                          nbp = nombre_pieces_principales,
+                          ter = surface_terrain,
+                          lat = latitude,
+                          lon = longitude,
+                          ) %>% 
+           mutate(type = as.factor(type),
+                  prixm2 = prix/sup)
+  
+}
 ```
 
-On décide de limiter l'âge maximum à 50 ans
 
+On teste la fonction par défaut :
 
 ```{r}
-mapresto$age <-ifelse(mapresto$age > 20, 20, mapresto$age)
-hist(mapresto$age)
+x<- dvfcomyear()
+head(x)
 ```
 
-On remarque que les restaurants de type rapide sont plus récents que les traditionnels
-
+On peut changer la date : 
 
 ```{r}
-boxplot(mapresto$age~mapresto$type, horizontal = T)
-t.test(mapresto$age~mapresto$type)
+x<-dvfcomyear(,myyear="2014")
+head(x)
 ```
 
 
+On peut appliquer à une autre commune (nom en minuscule) et une autre date
 
-On peut visualiser la position des restaurants avec sf
+```{r}
+x<-dvfcomyear(mycom = "vitry-sur-seine",myyear="2020")
+head(x)
+```
+
+
+## C. Cartographie statique
+
+Prenons l'exemples des ventes à Suyc-en-Brie en 2014 et essayons de visualiser les ventes avec différents packages :
+
+```{r}
+mapDVF <- dvfcomyear(mycom = "sucy-en-brie",myyear = "2014")
+```
+
+
+### Nuages de points avec sf
+
+On peut visualiser la position des ventes avec sf
 
 
 ```{r}
 par(mar=c(0,0,0,0))
-plot(mapresto$geometry,cex=0.5, pch=20,bg = "lightyellow", col="red")
+plot(mapDVF$geometry,cex=0.5, pch=20,bg = "lightyellow", col="red")
 ```
 
-On peut même visualiser le type de restaurant :
+On peut également visualiser le type de bien (maison ou appartement)
 
 ```{r}
 par(mar=c(0,0,0,0))
-plot(mapresto$geometry,
+plot(mapDVF$geometry,
      cex=0.5, 
      pch=20,
      bg = "lightyellow", 
-     col=mapresto$type)
+     col=mapDVF$type)
 ```
 
-Voire ajouter l'ancienneté en prenant la racine carré de l'âge comme surface
+Voire ajouter la taille en prenant la racine carré du nombre de pièce
 
 ```{r}
 par(mar=c(0,0,0,0))
-plot(mapresto$geometry,
-     cex=sqrt(mapresto$age)/4,
+plot(mapDVF$geometry,
+     cex=sqrt(mapDVF$nbp),
      pch=20,
      bg = "lightyellow", 
-     col=mapresto$type)
+     col=mapDVF$type)
 ```
 
 
 La carte s'affiche mais on ne sait pas trop bien où l'on est ...  On  sauvegarde le résultat.
 
 ```{r}
-saveRDS(mapresto, "data/map_resto_grenoble.RDS")
+saveRDS(mapDVF, "data/map_DVF.RDS")
 ```
 
 
 
-### Données aréales
+### Ajout de données aréales
 
-On souhaite visualiser les quartiers de Grenoble.
+On souhaite visualiser le niveau de vie des quartiers de la commine
 
 Tant qu'à faire, on importe un fonds de carte des IRIS donnant quelques indications sociales sur la richesse ou la pauvreté des habitants. On va utiliser pour cela une base concernant l'[indice de défavorisation sociale par IRIS](https://public.opendatasoft.com/explore/dataset/indice-de-defavorisation-sociale-fdep-par-iris/information/)en 2014, accessible sur Public.opendatasoft
 
 
 ```{r}
-myurl<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22GRENOBLE%22&timezone=Europe%2FBerlin"
+myurl<-"https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/indice-de-defavorisation-sociale-fdep-par-iris/exports/geojson?lang=fr&refine=c_nom_com%3A%22SUCY-EN-BRIE%22&timezone=Europe%2FBerlin"
 mapiris<-st_read(myurl)
 ```
 
@@ -363,78 +431,80 @@ plot(mapiris["t1_rev_med"])
 On sauvegarde le fonds des IRIS pour pouvoir l'utiliser ensuite.
 
 ```{r}
-saveRDS(mapiris, "data/map_iris_grenoble.RDS")
+saveRDS(mapiris, "data/map_iris.RDS")
 ```
 
 
 
-### Cartographie statique
+### Cartographie avec mapsf
 
 
-Si vous avez bien retenu les cours précédents, il ets assez simple de superposer la couche des IRIS et celle des restaurants à l'aide du logiciel mapsf. Voici une solution minimale:
+Si vous avez bien retenu les cours précédents, il est assez simple de superposer la couche des IRIS et celle des restaurants à l'aide du logiciel mapsf. Voici une solution minimale:
 
 
 ```{r}
 library(mapsf)
-mapiris<-readRDS("data/map_iris_grenoble.RDS")
-mapresto<-readRDS("data/map_resto_grenoble.RDS")
+mapiris<-readRDS("data/map_iris.RDS")
+mapDVF<-readRDS("data/map_dvf.RDS")
 
 mf_map(mapiris, type="choro", var= "t1_rev_med")
-mf_map(mapresto, type="typo", var="type", pch=20, cex=0.5, add=T)
-mf_layout("Revenu par quartier et types de restaurant à Grenoble")
+mf_map(mapDVF, type="typo", var="type", pch=20, cex=2, add=T)
+mf_layout("Revenu par quartier et types de vente immobilière")
 ```
 
 La carte n'est toutefois pas très satisfaisante car le fonds est non projeté (EPSG = 4326) et l'échelle est absurde. Il faut utiliser la projection française (EPS=2154) pour obtenir un résultat correct. 
 
-Voici la carte corrigée et améliorée en y ajoutant l'ancienneté et le type des restaurants.
+Voici la carte corrigée et améliorée en y ajoutant le nombre de pièces et le type des logements.
 
 ```{r}
 library(mapsf)
-mapiris<-readRDS("data/map_iris_grenoble.RDS") %>% st_transform(2154)
-mapresto<-readRDS("data/map_resto_grenoble.RDS") %>% st_transform(2154)
+mapiris<-readRDS("data/map_iris.RDS") %>% st_transform(2154)
+mapDVF<-readRDS("data/map_DVF.RDS") %>% st_transform(2154)
 
 mf_theme("agolalight")
 mf_map(mapiris, type="choro", 
        var= "t1_rev_med",
        pal="Grays",
        leg_title = "Revenu médian 2014",
+       leg_pos = "topright",
        leg_val_rnd = 0)
-mf_map(mapresto, type="prop_typo", 
-       var=c("age","type"), 
+mf_map(mapDVF, type="prop_typo", 
+       var=c("nbp","type"), 
        pal=c("lightblue","pink"),
-       inches=0.03,
-       leg_title = c("Ancienneté du restaurant","Type du restaurant"),
+       inches=0.06,
+       leg_title = c("Nombre de pièces","Type de logement"),
+       leg_pos = c("top","topleft"),
        add=T)
-mf_layout(title = "Revenu par quartier et types de restaurant à Grenoble",
-          credits = "Source : SIRENE 2024 et Indice de défavorisation sociale 2014",
-          frame=T)
+mf_layout(title = "Revenu et ventes de maisons ou appartements en 2014",
+          credits = "Source : DVF et Indice de défavorisation sociale 2014",
+          frame=T, arrow=F)
 ```
+- **Commentaire** : La carte obtenues est intéressante mais soulève beaucoup de questions, notamment en ce qui concerne les "vides". On trouve des zones sans aucune vente de logement et parfois même des quartiers entiées n'ayant enregistré aucune vente. On devine qu'il y a une explication mais la carte proposée ne permet pas de la trouver. 
 
 
-
-## Cartographie de points
+## D. Cartographie dynamique 
 
 
 ### Importation des données
 
-Nous récupérons les données sur les restaurants et les quartiers de Grenoble qui ont été éalborées au cours de l'exercice précédent
+Nous récupérons les données sur les ventes immmobilières et les quartiers de Sucy-en-Bie en 2014 qui ont été élaborées au cours de l'exercice précédent
 
 ```{r}
-resto<-readRDS("data/map_resto_grenoble.RDS")
-iris <-readRDS("data/map_iris_grenoble.RDS")
+dvf<-readRDS("data/map_DVF.RDS")
+iris <-readRDS("data/map_iris.RDS")
 ```
 
 Nous vérifions que la projection est bien de type WGS 84 (code EPSG = 4326)
 
 ```{r}
-st_crs(resto)
+st_crs(dvf)
 st_crs(iris)
 ```
 
 Si ce n'est pas le cas, on execute le programme suivant qui change la projection à l'aide de la fonction `st_transform()` du package **sf**
 
 ```{r}
-resto <- sf::st_transform(resto, crs = 4326)
+dvf <- sf::st_transform(dvf, crs = 4326)
 iris <- sf::st_transform(iris, crs = 4326)
 ```
 
@@ -443,7 +513,7 @@ iris <- sf::st_transform(iris, crs = 4326)
 
 ### Cartographie des localisations
 
-On commence par créer une carte des restaurants avec AddCircleMarkers()
+On commence par créer une carte des ventes avec AddCircleMarkers()
 
 
 ```{r}
@@ -452,7 +522,7 @@ On commence par créer une carte des restaurants avec AddCircleMarkers()
 # Réalisation de la carte
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
-             addCircleMarkers(data=resto)
+             addCircleMarkers(data=dvf)
 
 map
 ```
@@ -462,18 +532,18 @@ map
 
 ### Taille des cercles : variable de stock
 
-On règle la taille des cercles en fonction de l'ancienneté des restaurants. On décide que la taille minimale sera de 2 pixel et la taille maximale de 6 pixels
+On règle la taille des cercles en fonction du nombre de pièces des logements. On décide que la  la taille maximale sera de 6 pixels
 
 
 ```{r}
 # Calcul du diamètre des cercles
-  resto$myradius <-2 + 4*sqrt(resto$age/max(resto$age,na.rm=T))
+  dvf$myradius <-6*sqrt(dvf$nbp/max(dvf$nbp,na.rm=T))
   
 # Réalisation de la carte
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
   
-             addCircleMarkers(data=resto,
+             addCircleMarkers(data=dvf,
                               radius= ~myradius,    # diamètre
                               stroke=FALSE,         # pas de bordure           
                               fillOpacity = 0.5)    # opacité 
@@ -487,7 +557,16 @@ map
 
 ### Couleur des cercles : attribut quantitatif
 
-On peut considérer l'âge non pas comme un *stock* (nombre d'années d'existence) mais comme un *attribut quantitatif* mesurant la situation d'ancienneté. Dans ce cas la variation de taille n'est pas indiquée et il est plus logique de jouer sur le remplissage des cercles.
+On souhaite visualiser le prix au m2 des logements? On commence par analyser la distribution :
+
+```{r}
+dvf$prixm2 <- round(dvf$prixm2,0)
+summary(dvf$prixm2)
+hist(dvf$prixm2)
+```
+
+
+
 
 Dans le cas d'une variable quantitative on définit des classes à l'aide de la fonction `colorBin()`
 
@@ -495,12 +574,12 @@ Dans le cas d'une variable quantitative on définit des classes à l'aide de la 
 ```{r}
 
 # Choix des classes 
-    mycut<-c(0, 1, 2, 4, 8, 16, 25)
+    mycut<-c(0,2000, 3000, 4000, 5000,10000)
     
 # Choix de la palette (c'est une fonction !)
    mypal <- colorBin('Spectral', 
                        reverse = T,
-                       resto$age,
+                       dvf$prixm2,
                        bins=mycut)
     
 
@@ -509,19 +588,20 @@ Dans le cas d'une variable quantitative on définit des classes à l'aide de la 
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
   
-             addCircleMarkers(data=resto,
+             addCircleMarkers(data=dvf,
                               radius= 5 ,    # diamètre fixe
                               stroke=TRUE,          # bordure   
                               weight=1  ,           # épaisseur de la bordure
                               color= "black",      # couleur de la bordure
                               opacity = 0.7  ,       # opacité de la bordure 
                               fillOpacity = 0.5,    # opacité 
-                              fillColor = ~mypal(age)
+                              fillColor = ~mypal(prixm2),
+                              label = ~prixm2
                               )    %>%
-              addLegend(data = resto,
+              addLegend(data = dvf,
                       pal = mypal, 
-                      title = "Age du restaurant",
-                      values =~age, 
+                      title = "Prix au m2",
+                      values =~prixm2, 
                       position = 'topright') 
             
                               
@@ -533,14 +613,14 @@ map
 
 ### Couleur des cercles : variables qualitatives
 
-On peut utiliser la couleur des cercles également dans le cas d'une variable qualitative (factor) on définit la couleur par la fonction `colorFactor()`
+On peut aussi utiliser la couleur des cercles dans le cas d'une variable qualitative (factor).  On définit alors la couleur par la fonction `colorFactor()`. Soit par exemple le cas des maisons et appartements : 
 
 
 ```{r}
-levels(resto$type)
+levels(dvf$type)
 
 # Choix des classes 
-mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+mypal <- colorFactor(c("blue", "red"), domain = c("Maison", "Appartement"))
     
 
   
@@ -548,7 +628,7 @@ mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
   
-             addCircleMarkers(data=resto,
+             addCircleMarkers(data=dvf,
                               radius= 5 ,    # diamètre fixe
                               stroke=TRUE,          # bordure   
                               weight=1  ,           # épaisseur de la bordure
@@ -557,9 +637,9 @@ map <- leaflet() %>%
                               fillOpacity = 0.5,    # opacité 
                               fillColor = ~mypal(type)
                               )    %>%
-              addLegend(data = resto,
+              addLegend(data = dvf,
                       pal = mypal, 
-                      title = "Type de restaurant",
+                      title = "Type de logement",
                       values =~type, 
                       position = 'topright') 
             
@@ -578,16 +658,19 @@ On peut rajouter un popup pour afficher des informations détaillées sur chaque
 
 ```{r}
 # Choix des classes 
-mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+mypal <- colorFactor(c("blue", "red"), domain = c("Maison", "Appartement"))
     
 
 # Préparation des popups
-      mypopups <- lapply(seq(nrow(resto)), function(i) {
-      paste0(  paste("n° SIREN          : "      ,resto$siren[i]), '<br>', 
-               paste("n° SIRET          : "      ,resto$siret[i]), '<br>', 
-               paste("Date de création : ", as.character(resto$date_creation[i])), '<br>',
-               paste("Ancienneté  : " ,round(resto$age[i])), " ans", '<br>',
-               paste("Type de restauration : ", resto$type[i])              
+      mypopups <- lapply(seq(nrow(dvf)), function(i) {
+      paste0(  paste("n° vente         : "      ,dvf$id[i]), '<br>', 
+               paste("adresse          : "      ,dvf$adresse[i]), '<br>', 
+               paste("Date de mutation : ", as.character(dvf$date[i])), '<br>',
+               paste("Type de logement : " ,  dvf$type[i]), '<br>',
+               paste("Nombre de pièces : ", dvf$nbp[i])  , '<br>',
+               paste("Surface          : " ,  dvf$sup[i]), '<br>',
+               paste("Prix             : ", dvf$prix[i])  , '<br>',               
+               paste("Prix /m2         : ", round(dvf$prixm2[i],0))               
                )
             
             })
@@ -599,21 +682,21 @@ mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
 map <- leaflet() %>% 
             addProviderTiles('Esri.WorldTopoMap') %>%
   
-             addCircleMarkers(data=resto,
+             addCircleMarkers(data=dvf,
                               radius= 5 ,               # diamètre fixe
                               stroke=TRUE,              # bordure   
                               weight=1  ,               # épaisseur de la bordure
                               color= "black",           # couleur de la bordure
                               opacity = 0.7  ,          # opacité de la bordure 
                               fillOpacity = 0.5,        # opacité 
-                              fillColor = ~mypal(type), # culeur selon le type
+                              fillColor = ~mypal(type), # couleur selon le type
                               popup = mypopups          # Mon popup
                               
                               
                               )    %>%
-              addLegend(data = resto,
+              addLegend(data = dvf,
                       pal = mypal, 
-                      title = "Type de restaurant",
+                      title = "Type de bien",
                       values =~type, 
                       position = 'topright') 
             
@@ -630,16 +713,19 @@ On fait varier les tuiles pour offrir la possibilité de visualiser la position 
 ```{r}
 
 # Choix des classes 
-mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+mypal <- colorFactor(c("blue", "red"), domain = c("Maison", "Appartement"))
     
 
 # Préparation des popups
-      mypopups <- lapply(seq(nrow(resto)), function(i) {
-      paste0(  paste("n° SIREN          : "      ,resto$siren[i]), '<br>', 
-               paste("n° SIRET          : "      ,resto$siret[i]), '<br>', 
-               paste("Date de création : ", as.character(resto$date_creation[i])), '<br>',
-               paste("Ancienneté  : " ,round(resto$age[i])), " ans", '<br>',
-               paste("Type de restauration : ", resto$type[i])              
+      mypopups <- lapply(seq(nrow(dvf)), function(i) {
+      paste0(  paste("n° vente         : "      ,dvf$id[i]), '<br>', 
+               paste("adresse          : "      ,dvf$adresse[i]), '<br>', 
+               paste("Date de mutation : ", as.character(dvf$date[i])), '<br>',
+               paste("Type de logement : " ,  dvf$type[i]), '<br>',
+               paste("Nombre de pièces : ", dvf$nbp[i])  , '<br>',
+               paste("Surface          : " ,  dvf$sup[i]), '<br>',
+               paste("Prix             : ", dvf$prix[i])  , '<br>',               
+               paste("Prix /m2         : ", round(dvf$prixm2[i],0))               
                )
             
             })
@@ -649,7 +735,6 @@ mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
 
 # Réalisation de la carte
 map <- leaflet() %>% 
-  
                # Tuiles
                addTiles(group = "OSM ") %>%
                addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
@@ -659,23 +744,21 @@ map <- leaflet() %>%
                addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
                                  position = "bottomright") %>%
   
-              # Carte des restaurants
-             addCircleMarkers(data=resto,
+             addCircleMarkers(data=dvf,
                               radius= 5 ,               # diamètre fixe
                               stroke=TRUE,              # bordure   
                               weight=1  ,               # épaisseur de la bordure
                               color= "black",           # couleur de la bordure
                               opacity = 0.7  ,          # opacité de la bordure 
                               fillOpacity = 0.5,        # opacité 
-                              fillColor = ~mypal(type), # culeur selon le type
+                              fillColor = ~mypal(type), # couleur selon le type
                               popup = mypopups          # Mon popup
                               
                               
                               )    %>%
-              # Légende de la carte des restaurants
-              addLegend(data = resto,
+              addLegend(data = dvf,
                       pal = mypal, 
-                      title = "Type de restaurant",
+                      title = "Type de bien",
                       values =~type, 
                       position = 'topright') 
             
@@ -685,27 +768,29 @@ map
 
 
 
-
 ```
 
-### Ajout d'une couche de polygones
+### Ajout d'une couche de polygones (IRIS)
 
-On décide d'ajouter une couche de polygones relatives aux quartiers de Grenoble et une fonction label permettant d'afficher le nom du quartier quand la souris passe dessus
+On décide d'ajouter une couche de polygones relatives aux quartiers IRIS  et une fonction label permettant d'afficher le nom du quartier quand la souris passe dessus
+
 
 ```{r}
 
-
 # Choix des classes 
-mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
+mypal <- colorFactor(c("blue", "red"), domain = c("Maison", "Appartement"))
     
 
 # Préparation des popups
-      mypopups <- lapply(seq(nrow(resto)), function(i) {
-      paste0(  paste("n° SIREN          : "      ,resto$siren[i]), '<br>', 
-               paste("n° SIRET          : "      ,resto$siret[i]), '<br>', 
-               paste("Date de création : ", as.character(resto$date_creation[i])), '<br>',
-               paste("Ancienneté  : " ,round(resto$age[i])), " ans", '<br>',
-               paste("Type de restauration : ", resto$type[i])              
+      mypopups <- lapply(seq(nrow(dvf)), function(i) {
+      paste0(  paste("n° vente         : "      ,dvf$id[i]), '<br>', 
+               paste("adresse          : "      ,dvf$adresse[i]), '<br>', 
+               paste("Date de mutation : ", as.character(dvf$date[i])), '<br>',
+               paste("Type de logement : " ,  dvf$type[i]), '<br>',
+               paste("Nombre de pièces : ", dvf$nbp[i])  , '<br>',
+               paste("Surface          : " ,  dvf$sup[i]), '<br>',
+               paste("Prix             : ", dvf$prix[i])  , '<br>',               
+               paste("Prix /m2         : ", round(dvf$prixm2[i],0))               
                )
             
             })
@@ -715,7 +800,6 @@ mypal <- colorFactor(c("blue", "red"), domain = c("Rapide", "Traditionnel"))
 
 # Réalisation de la carte
 map <- leaflet() %>% 
-  
                # Tuiles
                addTiles(group = "OSM ") %>%
                addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
@@ -724,8 +808,7 @@ map <- leaflet() %>%
               # Contrôle des tuiles
                addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
                                  position = "bottomright") %>%
-              
-              # Carte des iris avec label 
+                # Carte des iris avec label 
             addPolygons(data = iris,
                           fillOpacity = 0.4,
                           label = ~c_nom_iris,
@@ -733,23 +816,22 @@ map <- leaflet() %>%
                           fillColor = "lightyellow",
                           weight = 1) %>%
   
-              # Carte des restaurants
-             addCircleMarkers(data=resto,
+  
+             addCircleMarkers(data=dvf,
                               radius= 5 ,               # diamètre fixe
                               stroke=TRUE,              # bordure   
                               weight=1  ,               # épaisseur de la bordure
                               color= "black",           # couleur de la bordure
                               opacity = 0.7  ,          # opacité de la bordure 
                               fillOpacity = 0.5,        # opacité 
-                              fillColor = ~mypal(type), # culeur selon le type
+                              fillColor = ~mypal(type), # couleur selon le type
                               popup = mypopups          # Mon popup
                               
                               
                               )    %>%
-              # Légende de la carte des restaurants
-              addLegend(data = resto,
+              addLegend(data = dvf,
                       pal = mypal, 
-                      title = "Type de restaurant",
+                      title = "Type de bien",
                       values =~type, 
                       position = 'topright') 
             
@@ -759,8 +841,103 @@ map
 
 
 
+```
+
+
+
+### Ajout du revenu par IRIS
+
+On peut ajouter une variable aux polygones pour faire apparaître par exemple le revenu médian par habitant en 2014. On va alors utiliser la fonction ColorBin déja discutée précédemment à propos des cercles.
+
+
+
+
+```{r}
+
+
+# Choix des classes de revenu par IRIS
+    mycut<-c(15000,20000, 22000, 24000, 26000, 28000, 30000, 33000)
+    
+    
+
+# Choix RColorBrewer# Choix de la palette (c'est une fonction !)
+   mypal2 <- colorBin('Oranges', 
+                       reverse = F,
+                       iris$t1_rev_med,
+                       bins=mycut)
+
+# Choix des classes 
+mypal <- colorFactor(c("blue", "red"), domain = c("Maison", "Appartement"))
+    
+
+# Préparation des popups
+      mypopups <- lapply(seq(nrow(dvf)), function(i) {
+      paste0(  paste("n° vente         : "      ,dvf$id[i]), '<br>', 
+               paste("adresse          : "      ,dvf$adresse[i]), '<br>', 
+               paste("Date de mutation : ", as.character(dvf$date[i])), '<br>',
+               paste("Type de logement : " ,  dvf$type[i]), '<br>',
+               paste("Nombre de pièces : ", dvf$nbp[i])  , '<br>',
+               paste("Surface          : " ,  dvf$sup[i]), '<br>',
+               paste("Prix             : ", dvf$prix[i])  , '<br>',               
+               paste("Prix /m2         : ", round(dvf$prixm2[i],0))               
+               )
+            
+            })
+      mypopups<-lapply(mypopups, htmltools::HTML)  
+      
+  
+
+# Réalisation de la carte
+map <- leaflet() %>% 
+               # Tuiles
+               addTiles(group = "OSM ") %>%
+               addProviderTiles('Esri.WorldTopoMap', group = "ESRI topo.") %>%
+               addProviderTiles('Esri.WorldImagery', group = "ESRI photo.") %>%
+  
+              # Contrôle des tuiles
+               addLayersControl( baseGroups = c("OSM","ESRI topo.","ESRI photo."),
+                                 position = "bottomright") %>%
+  
+            # Carte du revenu médian par iris avec label 
+            addPolygons(data = iris,
+                          fillOpacity = 0.4,
+                          label = paste(iris$c_nom_iris, ":", iris$t1_rev_med, "€/hab."),
+                          color="black",
+                          fillColor = ~mypal2(t1_rev_med),
+                          weight = 1) %>%
+  
+                addLegend(data = iris,
+                      pal = mypal2, 
+                      title = "Revenu médian 2014",
+                      values =~t1_rev_med, 
+                      position = 'topleft') %>%
+  
+             addCircleMarkers(data=dvf,
+                              radius= 5 ,               # diamètre fixe
+                              stroke=TRUE,              # bordure   
+                              weight=1  ,               # épaisseur de la bordure
+                              color= "black",           # couleur de la bordure
+                              opacity = 0.7  ,          # opacité de la bordure 
+                              fillOpacity = 0.5,        # opacité 
+                              fillColor = ~mypal(type), # couleur selon le type
+                              popup = mypopups          # Mon popup
+                              
+                              
+                              )    %>%
+              addLegend(data = dvf,
+                      pal = mypal, 
+                      title = "Ventes de biens 2014",
+                      values =~type, 
+                      position = 'topright') 
+  
+            
+                              
+map
+
+
 
 ```
+
 
 
 ### Sauvegarde du résultat
@@ -768,9 +945,8 @@ map
 on peut transformer le résultat en widget html pour réutilisation dans une page web
 
 ```{r}
-saveWidget(map, "img/map_restau.html",selfcontained = T)
+saveWidget(map, "img/map_dvf.html",selfcontained = T,title = "Ventes immobilières à Sucy-en-Brie en 2014",)
 ```
-
 
 
 
